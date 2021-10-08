@@ -1,10 +1,12 @@
-#APPS-CAN-Prototype
+# APPS-CAN-Prototype
 
-This prototype simulates a simple CAN bus, with 2 nodes, the main controller and a sensor.
+### Description:
 
-The first node (STM1) is our main stm, the second node is another stm acting as a temporary CAN controller for the APPS.
+* This prototype simulates a simple CAN bus, with 2 nodes, the main controller and a sensor.
 
-Both stm's have CAN transceiver's hooked up to convert the CAN RX/TX to CAN HI/LOW.
+* The first node (STM1) is our main stm, the second node is another stm acting as a temporary CAN controller for the APPS.
 
-Current state:
+* Both stms have CAN transceivers hooked up to convert the CAN RX/TX to CAN HI/LOW.
+
+Current State:
 Unfinished, has some naming issues to resolve as well
