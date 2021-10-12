@@ -1,5 +1,6 @@
 ################################################################################
 # Automatically-generated file. Do not edit!
+# Toolchain: GNU Tools for STM32 (9-2020-q2-update)
 ################################################################################
 
 -include ../makefile.init
@@ -33,55 +34,61 @@ endif
 
 -include ../makefile.defs
 
-BUILD_ARTIFACT_NAME := FSAE_Pedal_3.0
+OPTIONAL_TOOL_DEPS := \
+$(wildcard ../makefile.defs) \
+$(wildcard ../makefile.init) \
+$(wildcard ../makefile.targets) \
+
+
+BUILD_ARTIFACT_NAME := APPS-Analog
 BUILD_ARTIFACT_EXTENSION := elf
-BUILD_ARTIFACT_PREFIX := 
-BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME).$(BUILD_ARTIFACT_EXTENSION)
+BUILD_ARTIFACT_PREFIX :=
+BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-FSAE_Pedal_3.0.elf \
+APPS-Analog.elf \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-FSAE_Pedal_3.0.list \
+APPS-Analog.list \
 
 OBJCOPY_BIN += \
-FSAE_Pedal_3.0.bin \
+APPS-Analog.bin \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: FSAE_Pedal_3.0.elf secondary-outputs
+main-build: APPS-Analog.elf secondary-outputs
 
 # Tool invocations
-FSAE_Pedal_3.0.elf: $(OBJS) $(USER_OBJS) C:\Users\vbmat\STM32CubeIDE\workspace_1.5.0\FSAE_Pedal_3.0\STM32F407VGTX_FLASH.ld
-	arm-none-eabi-gcc -o "FSAE_Pedal_3.0.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\vbmat\STM32CubeIDE\workspace_1.5.0\FSAE_Pedal_3.0\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="FSAE_Pedal_3.0.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+APPS-Analog.elf: $(OBJS) $(USER_OBJS) C:\Users\vbmat\STM32CubeIDE\workspace_1.5.0\MCC-EVBrain-EVSTM\Projects\APPS-Analog\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "APPS-Analog.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\vbmat\STM32CubeIDE\workspace_1.5.0\MCC-EVBrain-EVSTM\Projects\APPS-Analog\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="APPS-Analog.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
-default.size.stdout: $(EXECUTABLES)
+default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	arm-none-eabi-size  $(EXECUTABLES)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-FSAE_Pedal_3.0.list: $(EXECUTABLES)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "FSAE_Pedal_3.0.list"
+APPS-Analog.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "APPS-Analog.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-FSAE_Pedal_3.0.bin: $(EXECUTABLES)
-	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "FSAE_Pedal_3.0.bin"
+APPS-Analog.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "APPS-Analog.bin"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) *
+	-$(RM) $(SIZE_OUTPUT)$(OBJDUMP_LIST)$(EXECUTABLES)$(OBJS)$(S_DEPS)$(S_UPPER_DEPS)$(C_DEPS)$(OBJCOPY_BIN) APPS-Analog.elf
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_BIN)
@@ -94,6 +101,5 @@ warn-no-linker-script-specified:
 	@echo 'Warning: No linker script specified. Check the linker settings in the build configuration.'
 
 .PHONY: all clean dependents fail-specified-linker-script-missing warn-no-linker-script-specified
-.SECONDARY:
 
 -include ../makefile.targets
