@@ -1,5 +1,6 @@
 # APPS-Analog
-Owners: Matthew Van Brummelen
+Owners: Matthew Van Brummelen \
+Current State: Finished, throttle map is linear
 ### Description
 
 * The STM32f407G-DISC1 board reads an analog value from the APPS(linear position sensor), converts the signal to digital, runs the signal through a matlab converted torque calculator [1], and finally outputs the desired torque value.
