@@ -58,7 +58,13 @@
 /* External variables --------------------------------------------------------*/
 
 /* USER CODE BEGIN EV */
-
+/* External variables --------------------------------------------------------*/
+extern CAN_HandleTypeDef hcan1;
+extern CAN_TxHeaderTypeDef pTxHeader; //CAN Tx Header
+extern CAN_RxHeaderTypeDef pRxHeader; //CAN Rx Header
+extern uint32_t pTxMailbox;
+extern uint8_t a,r; //transmit, receive byte through CAN
+extern CAN_FilterTypeDef sFilterConfig; //CAN filter configuration
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -205,7 +211,13 @@ void SysTick_Handler(void)
 void EXTI0_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI0_IRQn 0 */
-
+	for (int n=0;n<10000;n++); //delay
+	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)) //check user button
+	{
+		//increase a variable and transmit it through CAN
+		a++;
+		HAL_CAN_AddTxMessage(&hcan1, &pTxHeader, &a, &pTxMailbox); //transmit over CAN
+	}
   /* USER CODE END EXTI0_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
   /* USER CODE BEGIN EXTI0_IRQn 1 */
