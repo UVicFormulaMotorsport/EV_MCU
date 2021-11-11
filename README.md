@@ -6,6 +6,6 @@ A repository containing projects related to the stm32 controller of the EV.
 * Each project should have it's own .gitignore 
 
 
-#### Helpful Resources:
+#### HELPFUL RESOURCES:
 * Online Markdown editor - https://jbt.github.io/markdown-editor/
 * Markdown guide - https://guides.github.com/features/mastering-markdown/

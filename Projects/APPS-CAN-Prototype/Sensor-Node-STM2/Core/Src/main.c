@@ -43,7 +43,11 @@
 CAN_HandleTypeDef hcan1;
 
 /* USER CODE BEGIN PV */
-
+CAN_TxHeaderTypeDef pTxHeader; //CAN Tx Header
+CAN_RxHeaderTypeDef pRxHeader; //CAN Rx Header
+uint32_t pTxMailbox;
+uint8_t a,r; //transmit, receive byte through CAN
+CAN_FilterTypeDef sFilterConfig; //CAN filter configuration
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -51,7 +55,9 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN1_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void CAN_TxHeader_Init(CAN_TxHeaderTypeDef *pTxHeader, uint32_t dlc,uint32_t ide,uint32_t rtr,uint32_t stdId);
+static void CAN_Filter_Init(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sFilterConfig, uint32_t fifo,uint32_t highId,uint32_t lowId,uint32_t highMask,uint32_t lowMask,uint32_t scale);
+HAL_StatusTypeDef CANsend(CAN_HandleTypeDef *hcan, CAN_TxHeaderTypeDef *pTxHeader, uint8_t data[], uint32_t *pTxMailbox);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -89,7 +95,17 @@ int main(void)
   MX_GPIO_Init();
   MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
+  //Initialize CAN header - standard id type, set standard Id = filter ID of other device
+  CAN_TxHeader_Init(&pTxHeader, 1,CAN_ID_STD, CAN_RTR_DATA, 0x245);
 
+  //Initialize CAN filter - filter ID = TxHeader Id of other device, 32 bit scale. Enables and configs filter.
+  CAN_Filter_Init(&hcan1, &sFilterConfig, CAN_FILTER_FIFO0, 0x244, 0, 0, 0, CAN_FILTERSCALE_32BIT);
+
+  //start CAN
+  HAL_CAN_Start(&hcan1);
+
+  //interrupt on message pending
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -98,7 +114,9 @@ int main(void)
   {
 
     /* USER CODE END WHILE */
-
+	  for (int n=0;n<15000000;n++); //delay
+	  a++; //increment 8 bit data
+	  CANsend(&hcan1, &pTxHeader, &a, &pTxMailbox);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -222,29 +240,59 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void CAN1_Tx(void){
+/**
+  * @brief CAN Tx Header Initialization Function
+  * @param pTxHeader : CAN Tx header structure.
+  * 	   dlc       : Specifies the length of the frame that will be transmitted.
+  *        ide       : Specifies the type of identifier for the message that will be transmitted.
+  *        rtr 	     : Specifies the type of frame for the message that will be transmitted.
+  *        stdId     : Specifies the standard identifier. This parameter can be a value between 0x0000 and 0x07FF.
+  * @retval None
+  */
+static void CAN_TxHeader_Init(CAN_TxHeaderTypeDef *pTxHeader, uint32_t dlc,uint32_t ide,uint32_t rtr,uint32_t stdId)
+{
+	  pTxHeader->DLC = dlc; // 'dlc' bytes of data
+	  pTxHeader->IDE = ide;
+	  pTxHeader->RTR = rtr;
+	  pTxHeader->StdId = stdId; //set standard identifier.
+}
 
-		CAN_TxHeaderTypeDef TxHeader;
+/**
+  * @brief CAN Filter Initialization Function
+  * @param hcan          : pointer to a CAN_HandleTypeDef structure that contains the configuration information for the specified CAN.
+  *        sFilterConfig : pointer to a CAN_FilterTypeDef structure.
+  * 	   fifo          : Specifies the FIFO (0 or 1) which will be assigned to the filter. This parameter can be a value of CAN_filter_FIFO
+  * 	   highID        : Specifies the filter identification number (MSBs for a 32-bit configuration, first one for a 16-bit configuration). This parameter can be a value between 0x0000 and 0xFFFF
+  * 	   lowID         : Specifies the filter identification number (LSBs for a 32-bit configuration, second one for a 16-bit configuration). This parameter can be a value between 0x0000 and 0xFFFF
+  * 	   highMask      : Specifies the filter mask number or identification number, according to the mode (MSBs for a 32-bit configuration, first one for a 16-bit configuration). This parameter can be a value between 0x0000 and 0xFFFF
+  * 	   lowMask       : Specifies the filter mask number or identification number, according to the mode (LSBs for a 32-bit configuration, second one for a 16-bit configuration). This parameter can be a value between 0x0000 and 0xFFFF
+  * 	   scale         : Specifies the filter scale. This parameter can be a value of CAN_filter_scale
+  * @retval None
+  */
+static void CAN_Filter_Init(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sFilterConfig, uint32_t fifo,uint32_t highId,uint32_t lowId,uint32_t highMask,uint32_t lowMask,uint32_t scale)
+{
+	  sFilterConfig->FilterFIFOAssignment = fifo;
+	  sFilterConfig->FilterIdHigh = highId<<5; //must be shifted 5 bits to the left according to reference manual
+	  sFilterConfig->FilterIdLow = lowId;
+	  sFilterConfig->FilterMaskIdHigh = highMask;
+	  sFilterConfig->FilterMaskIdLow = lowMask;
+	  sFilterConfig->FilterScale = scale;
+	  sFilterConfig->FilterActivation = CAN_FILTER_ENABLE; //enable activation
 
-		uint32_t TxMailbox;
+	  HAL_CAN_ConfigFilter(hcan, sFilterConfig); //config CAN filter
+}
 
-		uint8_t our_message[5] = {'H', 'E', 'L', 'L', 'O'};
-
-		TxHeader.DLC = 5;
-		TxHeader.StdId = 0x65D;
-		TxHeader.IDE = CAN_ID_STD;
-		TxHeader.RTR = CAN_RTR_DATA;
-
-		if ( HAL_CAN_AddTxMessage(&hcan1, &TxHeader, our_message, &TxMailbox) != HAL_OK){
-			Error_Handler();
-		}
-
-		// Currently trying polling, change to an interrupt method before practical use!
-		while(HAL_CAN_IsTxMessagePending(&hcan1, TxMailbox));
-
-		printf("Message Transmitted\r\n");
-
-
+/**
+  * @brief CAN Transmit (after header, filter config)
+  * @param hcan       : pointer to a CAN_HandleTypeDef structure that contains the configuration information for the specified CAN.
+  *        pTxHeader  : pointer to a CAN_TxHeaderTypeDef structure.
+  *        data       : array containing the payload of the Tx frame.
+  *        pTxMailbox : pointer to a variable where the function will return the TxMailbox used to store the Tx message. This parameter can be a value of @arg CAN_Tx_Mailboxes.
+  * @retval None
+  */
+HAL_StatusTypeDef CANsend(CAN_HandleTypeDef *hcan, CAN_TxHeaderTypeDef *pTxHeader, uint8_t data[], uint32_t *pTxMailbox)
+{
+	return (HAL_CAN_AddTxMessage(hcan, pTxHeader, data, pTxMailbox)); //transmit over CAN, return HAL status
 }
 /* USER CODE END 4 */
 
