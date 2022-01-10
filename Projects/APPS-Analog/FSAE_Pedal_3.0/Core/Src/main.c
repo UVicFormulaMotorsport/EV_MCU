@@ -47,30 +47,39 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 
-I2C_HandleTypeDef hi2c1;
+CAN_HandleTypeDef hcan1;
 
-I2S_HandleTypeDef hi2s3;
+I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi1;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
+CAN_TxHeaderTypeDef pTxHeader; //CAN Tx Header
+CAN_RxHeaderTypeDef pRxHeader; //CAN Rx Header
+uint32_t pTxMailbox;
+CAN_FilterTypeDef sFilterConfig; //CAN filter configuration
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_I2S3_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_CAN1_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
-
+static void CAN_TxHeader_Init(CAN_TxHeaderTypeDef *pTxHeader, uint32_t dlc,
+		uint32_t ide, uint32_t rtr, uint32_t stdId);
+static void CAN_Filter_Init(CAN_HandleTypeDef *hcan,
+		CAN_FilterTypeDef *sFilterConfig, uint32_t fifo, uint32_t highId,
+		uint32_t lowId, uint32_t highMask, uint32_t lowMask, uint32_t scale);
+HAL_StatusTypeDef CANsend(CAN_HandleTypeDef *hcan,
+		CAN_TxHeaderTypeDef *pTxHeader, uint16_t data[], uint32_t *pTxMailbox);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -82,22 +91,27 @@ void MX_USB_HOST_Process(void);
  * @brief  The application entry point.
  * @retval int
  */
-int main(void) {
+int main(void)
+{
 	/* USER CODE BEGIN 1 */
-	float ap_raw;
-	float bp_raw;
-	float ap_percent;
-	float bp_percent;
-	float output_percent;
+	float ap_raw; // raw accelerator pedal sensor value
+	float bp_raw; // raw brake pedal sensor value
+	float ap_percent; // accelerator pedal value as a percent
+	float bp_percent; // brake pedal value as a percent
+
 	float regen_percent;
 	float dmd_trq; // demanded torque
 	float mtr_spd; // motor speed
 	float max_cnt_pwr; // max continuous power
-	uint16_t trq_setpoint;
-	uint16_t implausible_state;
-	uint32_t transmit_result;
+	float output_percent; // percentage of current max torque to output
+
+	uint8_t tx_data[]; // can message data
+	uint16_t trq_setpoint; // torque setpoint
+	uint8_t IMPLAUSIBLE_STATE;
+	uint8_t PEAK_TORQUE_MODE;
+
 	float max_trq;
-	char msg[100];     // used for transmitting
+	char msg[100];
 
 	/* USER CODE END 1 */
 
@@ -120,13 +134,33 @@ int main(void) {
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
 	MX_I2C1_Init();
-	MX_I2S3_Init();
 	MX_SPI1_Init();
 	MX_USB_HOST_Init();
 	MX_ADC1_Init();
 	MX_USART2_UART_Init();
+	MX_CAN1_Init();
 	/* USER CODE BEGIN 2 */
+	//Initialize CAN header - standard id type, set standard Id = filter ID of other device
+	CAN_TxHeader_Init(&pTxHeader, 1, CAN_ID_STD, CAN_RTR_DATA, 0x245);
 
+	//Initialize CAN filter - filter ID = TxHeader Id of other device, 32 bit scale. Enables and configs filter.
+	CAN_Filter_Init(&hcan1, &sFilterConfig, CAN_FILTER_FIFO0, 0x244, 0, 0, 0,
+	CAN_FILTERSCALE_32BIT);
+
+	//start CAN
+	HAL_CAN_Start(&hcan1);
+
+	//interrupt on message pending
+	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+	//Initialize CAN filter - filter ID = TxHeader Id of other device, 32 bit scale. Enables and configs filter.
+	CAN_Filter_Init(&hcan1, &sFilterConfig, CAN_FILTER_FIFO0, 0x244, 0, 0, 0,
+	CAN_FILTERSCALE_32BIT);
+
+	//start CAN
+	HAL_CAN_Start(&hcan1);
+
+	//interrupt on message pending
+	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -136,38 +170,67 @@ int main(void) {
 	max_cnt_pwr = 100;
 	mtr_spd = 0;
 
-	uint16_t calculate_max_torque() {
-		if (mtr_spd <= 0) {
+	// Returns the maximum continuous torque available at the current rpm
+	float cont_torque_map(uint16_t rpm)
+	{
+		// ax*2 + bx + c
+		float val = (-0.000003 * rpm * rpm) + (0.0192 * rpm) + (97.429);
+		if (val < 0)
 			return 0;
-		}
-
-		return max_cnt_pwr / mtr_spd;
+		if (val > 125)
+			return 125;
+		return val;
 	}
 
-	uint16_t calculate_setpoint(float output_percent) {
+	// Returns the maximum peak torque available at the current rpm
+	float peak_torque_map(uint16_t rpm)
+	{
+		// ax*2 + bx + c
+		float val = (-0.000001 * rpm * rpm) + (0.0029 * rpm) + (239.57);
+		if (val < 0)
+			return 0;
+		if (val > 240)
+			return 240;
+		return val;
+	}
+
+	// Calculate a setpoint value given a torque value
+	uint16_t calculate_setpoint(float dmd_trq)
+	{
+		float output_Percent = dmd_trq / 240;
 		return output_percent * (float) 32767;
 	}
 
-	// Returns true is the car is not in or recovering from an implausible state
-	int plausibility_check(float ap_percent, float bp_percent,int *implausible_state) {
+	// Returns true if the car is not in or recovering from an implausible state
+	int plausibility_check(float ap_percent, float bp_percent, uint16_t *IMPLAUSIBLE_STATE)
+	{
 		// If in an implausible state, check if the accelerator pedal
 		// has dropped below 5 percent, in this case, update state and return true
 		// otherwise return false
-		if (*implausible_state == true) {
-			if (ap_percent < 0.05) {
-				*implausible_state = false;
+		if (*IMPLAUSIBLE_STATE == true)
+		{
+			if (ap_percent < 0.05)
+			{
+				*IMPLAUSIBLE_STATE = false;
 				return true;
-			} else {
+			}
+			else
+			{
 				return false;
 			}
-		} else {
+		}
+		else
+		{
 			// Check ap and bp to see if they are currently in an implausible state.
 			// Change the status and return false if they are
 			//TODO: Figure out the bp_percent value for mechanical brake actuation
-			if (ap_percent >= 0.25 && bp_percent >= 0.05) {
-				*implausible_state = true;
+			if (ap_percent >= 0.25 && bp_percent >= 0.05)
+			{
+				*IMPLAUSIBLE_STATE = true;
 				return false;
-			} else {
+			}
+			else
+			{
 				return true;
 			}
 		}
@@ -180,9 +243,11 @@ int main(void) {
 	ap_raw = 0;
 	bp_raw = 0;
 	regen_percent = 0;
-	implausible_state = false;
+	IMPLAUSIBLE_STATE = false;
+	PEAK_TORQUE_MODE = false;
 
-	while (1) {
+	while (1)
+	{
 		/** Get ADC values **/
 		HAL_ADC_Start(&hadc1);
 		HAL_ADC_PollForConversion(&hadc1, 1000);
@@ -190,18 +255,33 @@ int main(void) {
 		HAL_ADC_Start(&hadc1);
 		bp_raw = HAL_ADC_GetValue(&hadc1);
 
-		max_trq = 230;
-
-		/** Convert [sensor voltage] -> [% throttle activated] **/
+		/** Convert [sensor value] -> [% throttle activated] **/
 		ap_percent = ap_raw / 4095.0;
 		bp_percent = bp_raw / 4095.0;
 
 		/** Check pedal plausibility **/
 		// If in a plausible state, convert pedal sensor actuation to desired torque
-		if (plausibility_check(ap_percent, bp_percent, &implausible_state)) {
+		if (plausibility_check(ap_percent, bp_percent, &IMPLAUSIBLE_STATE))
+		{
+
+			// Get current max torque
+			// TODO: Read motor rpm
+			/*
+			 if (PEAK_TORQUE_MODE)
+			 {
+			 max_trq = peak_torque_map(current_rpm);
+			 }
+			 else
+			 {
+			 max_trq = cont_torque_map(current_rpm);
+			 }
+			 */
+
+			max_trq = 100;
+
 			/** Set inputs for torque_calculator **/
 			demanded_torque_calculator_U.regen_percentage = regen_percent; // regen not yet implemented
-			demanded_torque_calculator_U.throttle = ap_percent*100;
+			demanded_torque_calculator_U.throttle = ap_percent * 100;
 			demanded_torque_calculator_U.max_torque = max_trq;
 
 			/** Step (calculate model outputs from inputs) **/
@@ -209,22 +289,30 @@ int main(void) {
 
 			/** Get outputs from torque_calculator object **/
 			dmd_trq = demanded_torque_calculator_Y.demanded_torque;
-		} else {
-			// If not in plausible state, set desired torque to 0
+		}
+		else
+		{
+			// If not in plausible state, set demanded torque to 0
 			// TODO: May need to trigger shutdown circuit here, not sure.
 			dmd_trq = 0;
 		}
 
 		/** Calculate the torque setpoint **/
-		output_percent = dmd_trq / max_trq;
-		trq_setpoint = calculate_setpoint(output_percent);
+		trq_setpoint = calculate_setpoint(dmd_trq);
 
 		/** Create CAN message **/
 		//TODO: Add code for creating/sending can message
+		/* Split the setpoint value into 2 byte blocks */
+		can_data[0] = trq_setpoint & 0xFF;  // Bits 7 - 0
+		can_data[1] = (trq_setpoint > 8) & 0xFF; // Bits 15 - 8
+
+		CANsend(&hcan1, &pTxHeader, &can_data, &pTxMailbox);
 
 		/** Convert to string and print to serial **/
-		sprintf(msg, "AP - %f, BP - %f, SP - %d\r\n", ap_percent, bp_percent, trq_setpoint);
-		transmit_result = HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), 1000);
+		sprintf(msg, "AP - %f, BP - %f, SP - %d\r\n", ap_percent, bp_percent,
+				trq_setpoint);
+		transmit_result = HAL_UART_Transmit(&huart2, (uint8_t*) msg,
+				strlen(msg), 1000);
 
 		/** Pretend we have something else to do for a while **/
 		HAL_Delay(1);
@@ -245,9 +333,12 @@ int main(void) {
  * @brief System Clock Configuration
  * @retval None
  */
-void SystemClock_Config(void) {
-	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+void SystemClock_Config(void)
+{
+	RCC_OscInitTypeDef RCC_OscInitStruct =
+	{ 0 };
+	RCC_ClkInitTypeDef RCC_ClkInitStruct =
+	{ 0 };
 
 	/** Configure the main internal regulator output voltage
 	 */
@@ -264,7 +355,8 @@ void SystemClock_Config(void) {
 	RCC_OscInitStruct.PLL.PLLN = 336;
 	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
 	RCC_OscInitStruct.PLL.PLLQ = 7;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Initializes the CPU, AHB and APB buses clocks
@@ -276,7 +368,8 @@ void SystemClock_Config(void) {
 	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
 	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK) {
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+	{
 		Error_Handler();
 	}
 }
@@ -286,13 +379,15 @@ void SystemClock_Config(void) {
  * @param None
  * @retval None
  */
-static void MX_ADC1_Init(void) {
+static void MX_ADC1_Init(void)
+{
 
 	/* USER CODE BEGIN ADC1_Init 0 */
 
 	/* USER CODE END ADC1_Init 0 */
 
-	ADC_ChannelConfTypeDef sConfig = { 0 };
+	ADC_ChannelConfTypeDef sConfig =
+	{ 0 };
 
 	/* USER CODE BEGIN ADC1_Init 1 */
 
@@ -311,7 +406,8 @@ static void MX_ADC1_Init(void) {
 	hadc1.Init.NbrOfConversion = 2;
 	hadc1.Init.DMAContinuousRequests = DISABLE;
 	hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-	if (HAL_ADC_Init(&hadc1) != HAL_OK) {
+	if (HAL_ADC_Init(&hadc1) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
@@ -319,14 +415,16 @@ static void MX_ADC1_Init(void) {
 	sConfig.Channel = ADC_CHANNEL_0;
 	sConfig.Rank = 1;
 	sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
 	 */
 	sConfig.Channel = ADC_CHANNEL_1;
 	sConfig.Rank = 2;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN ADC1_Init 2 */
@@ -336,11 +434,49 @@ static void MX_ADC1_Init(void) {
 }
 
 /**
+ * @brief CAN1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_CAN1_Init(void)
+{
+
+	/* USER CODE BEGIN CAN1_Init 0 */
+
+	/* USER CODE END CAN1_Init 0 */
+
+	/* USER CODE BEGIN CAN1_Init 1 */
+
+	/* USER CODE END CAN1_Init 1 */
+	hcan1.Instance = CAN1;
+	hcan1.Init.Prescaler = 21;
+	hcan1.Init.Mode = CAN_MODE_NORMAL;
+	hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
+	hcan1.Init.TimeSeg1 = CAN_BS1_12TQ;
+	hcan1.Init.TimeSeg2 = CAN_BS2_4TQ;
+	hcan1.Init.TimeTriggeredMode = DISABLE;
+	hcan1.Init.AutoBusOff = DISABLE;
+	hcan1.Init.AutoWakeUp = DISABLE;
+	hcan1.Init.AutoRetransmission = DISABLE;
+	hcan1.Init.ReceiveFifoLocked = DISABLE;
+	hcan1.Init.TransmitFifoPriority = DISABLE;
+	if (HAL_CAN_Init(&hcan1) != HAL_OK)
+	{
+		Error_Handler();
+	}
+	/* USER CODE BEGIN CAN1_Init 2 */
+
+	/* USER CODE END CAN1_Init 2 */
+
+}
+
+/**
  * @brief I2C1 Initialization Function
  * @param None
  * @retval None
  */
-static void MX_I2C1_Init(void) {
+static void MX_I2C1_Init(void)
+{
 
 	/* USER CODE BEGIN I2C1_Init 0 */
 
@@ -358,7 +494,8 @@ static void MX_I2C1_Init(void) {
 	hi2c1.Init.OwnAddress2 = 0;
 	hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
 	hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-	if (HAL_I2C_Init(&hi2c1) != HAL_OK) {
+	if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN I2C1_Init 2 */
@@ -368,43 +505,12 @@ static void MX_I2C1_Init(void) {
 }
 
 /**
- * @brief I2S3 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_I2S3_Init(void) {
-
-	/* USER CODE BEGIN I2S3_Init 0 */
-
-	/* USER CODE END I2S3_Init 0 */
-
-	/* USER CODE BEGIN I2S3_Init 1 */
-
-	/* USER CODE END I2S3_Init 1 */
-	hi2s3.Instance = SPI3;
-	hi2s3.Init.Mode = I2S_MODE_MASTER_TX;
-	hi2s3.Init.Standard = I2S_STANDARD_PHILIPS;
-	hi2s3.Init.DataFormat = I2S_DATAFORMAT_16B;
-	hi2s3.Init.MCLKOutput = I2S_MCLKOUTPUT_ENABLE;
-	hi2s3.Init.AudioFreq = I2S_AUDIOFREQ_96K;
-	hi2s3.Init.CPOL = I2S_CPOL_LOW;
-	hi2s3.Init.ClockSource = I2S_CLOCK_PLL;
-	hi2s3.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_DISABLE;
-	if (HAL_I2S_Init(&hi2s3) != HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN I2S3_Init 2 */
-
-	/* USER CODE END I2S3_Init 2 */
-
-}
-
-/**
  * @brief SPI1 Initialization Function
  * @param None
  * @retval None
  */
-static void MX_SPI1_Init(void) {
+static void MX_SPI1_Init(void)
+{
 
 	/* USER CODE BEGIN SPI1_Init 0 */
 
@@ -426,7 +532,8 @@ static void MX_SPI1_Init(void) {
 	hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
 	hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
 	hspi1.Init.CRCPolynomial = 10;
-	if (HAL_SPI_Init(&hspi1) != HAL_OK) {
+	if (HAL_SPI_Init(&hspi1) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN SPI1_Init 2 */
@@ -440,7 +547,8 @@ static void MX_SPI1_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_USART2_UART_Init(void) {
+static void MX_USART2_UART_Init(void)
+{
 
 	/* USER CODE BEGIN USART2_Init 0 */
 
@@ -457,7 +565,8 @@ static void MX_USART2_UART_Init(void) {
 	huart2.Init.Mode = UART_MODE_TX_RX;
 	huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-	if (HAL_UART_Init(&huart2) != HAL_OK) {
+	if (HAL_UART_Init(&huart2) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN USART2_Init 2 */
@@ -471,8 +580,10 @@ static void MX_USART2_UART_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_GPIO_Init(void) {
-	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+static void MX_GPIO_Init(void)
+{
+	GPIO_InitTypeDef GPIO_InitStruct =
+	{ 0 };
 
 	/* GPIO Ports Clock Enable */
 	__HAL_RCC_GPIOE_CLK_ENABLE();
@@ -491,8 +602,7 @@ static void MX_GPIO_Init(void) {
 
 	/*Configure GPIO pin Output Level */
 	HAL_GPIO_WritePin(GPIOD,
-			LD4_Pin | LD3_Pin | LD5_Pin | LD6_Pin | Audio_RST_Pin,
-			GPIO_PIN_RESET);
+	LD4_Pin | LD3_Pin | LD5_Pin | LD6_Pin | Audio_RST_Pin, GPIO_PIN_RESET);
 
 	/*Configure GPIO pin : CS_I2C_SPI_Pin */
 	GPIO_InitStruct.Pin = CS_I2C_SPI_Pin;
@@ -516,6 +626,14 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
 	HAL_GPIO_Init(PDM_OUT_GPIO_Port, &GPIO_InitStruct);
 
+	/*Configure GPIO pin : I2S3_WS_Pin */
+	GPIO_InitStruct.Pin = I2S3_WS_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
+	HAL_GPIO_Init(I2S3_WS_GPIO_Port, &GPIO_InitStruct);
+
 	/*Configure GPIO pin : BOOT1_Pin */
 	GPIO_InitStruct.Pin = BOOT1_Pin;
 	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -538,6 +656,14 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
+	/*Configure GPIO pins : I2S3_MCK_Pin I2S3_SCK_Pin I2S3_SD_Pin */
+	GPIO_InitStruct.Pin = I2S3_MCK_Pin | I2S3_SCK_Pin | I2S3_SD_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
+	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
 	/*Configure GPIO pin : OTG_FS_OverCurrent_Pin */
 	GPIO_InitStruct.Pin = OTG_FS_OverCurrent_Pin;
 	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -553,6 +679,55 @@ static void MX_GPIO_Init(void) {
 }
 
 /* USER CODE BEGIN 4 */
+static void CAN_TxHeader_Init(CAN_TxHeaderTypeDef *pTxHeader, uint32_t dlc,
+		uint32_t ide, uint32_t rtr, uint32_t stdId)
+{
+	pTxHeader->DLC = dlc; // 'dlc' bytes of data
+	pTxHeader->IDE = ide;
+	pTxHeader->RTR = rtr;
+	pTxHeader->StdId = stdId; //set standard identifier.
+}
+
+/**
+ * @brief CAN Filter Initialization Function
+ * @param hcan          : pointer to a CAN_HandleTypeDef structure that contains the configuration information for the specified CAN.
+ *        sFilterConfig : pointer to a CAN_FilterTypeDef structure.
+ * 	   fifo          : Specifies the FIFO (0 or 1) which will be assigned to the filter. This parameter can be a value of CAN_filter_FIFO
+ * 	   highID        : Specifies the filter identification number (MSBs for a 32-bit configuration, first one for a 16-bit configuration). This parameter can be a value between 0x0000 and 0xFFFF
+ * 	   lowID         : Specifies the filter identification number (LSBs for a 32-bit configuration, second one for a 16-bit configuration). This parameter can be a value between 0x0000 and 0xFFFF
+ * 	   highMask      : Specifies the filter mask number or identification number, according to the mode (MSBs for a 32-bit configuration, first one for a 16-bit configuration). This parameter can be a value between 0x0000 and 0xFFFF
+ * 	   lowMask       : Specifies the filter mask number or identification number, according to the mode (LSBs for a 32-bit configuration, second one for a 16-bit configuration). This parameter can be a value between 0x0000 and 0xFFFF
+ * 	   scale         : Specifies the filter scale. This parameter can be a value of CAN_filter_scale
+ * @retval None
+ */
+static void CAN_Filter_Init(CAN_HandleTypeDef *hcan,
+		CAN_FilterTypeDef *sFilterConfig, uint32_t fifo, uint32_t highId,
+		uint32_t lowId, uint32_t highMask, uint32_t lowMask, uint32_t scale)
+{
+	sFilterConfig->FilterFIFOAssignment = fifo;
+	sFilterConfig->FilterIdHigh = highId << 5; //must be shifted 5 bits to the left according to reference manual
+	sFilterConfig->FilterIdLow = lowId;
+	sFilterConfig->FilterMaskIdHigh = highMask;
+	sFilterConfig->FilterMaskIdLow = lowMask;
+	sFilterConfig->FilterScale = scale;
+	sFilterConfig->FilterActivation = CAN_FILTER_ENABLE; //enable activation
+
+	HAL_CAN_ConfigFilter(hcan, sFilterConfig); //config CAN filter
+}
+
+/**
+ * @brief CAN Transmit (after header, filter config)
+ * @param hcan       : pointer to a CAN_HandleTypeDef structure that contains the configuration information for the specified CAN.
+ *        pTxHeader  : pointer to a CAN_TxHeaderTypeDef structure.
+ *        data       : array containing the payload of the Tx frame.
+ *        pTxMailbox : pointer to a variable where the function will return the TxMailbox used to store the Tx message. This parameter can be a value of @arg CAN_Tx_Mailboxes.
+ * @retval None
+ */
+HAL_StatusTypeDef CANsend(CAN_HandleTypeDef *hcan,
+		CAN_TxHeaderTypeDef *pTxHeader, uint16_t data[], uint32_t *pTxMailbox)
+{
+	return (HAL_CAN_AddTxMessage(hcan, pTxHeader, data, pTxMailbox)); //transmit over CAN, return HAL status
+}
 
 /* USER CODE END 4 */
 
@@ -560,7 +735,8 @@ static void MX_GPIO_Init(void) {
  * @brief  This function is executed in case of error occurrence.
  * @retval None
  */
-void Error_Handler(void) {
+void Error_Handler(void)
+{
 	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 

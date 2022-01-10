@@ -61,8 +61,8 @@ all: main-build
 main-build: CAN_Test_02_STM1.elf secondary-outputs
 
 # Tool invocations
-CAN_Test_02_STM1.elf: $(OBJS) $(USER_OBJS) C:\Users\vbmat\OneDrive\Desktop\FSAE\ stuff\CAN\CAN_Test_02_STM1\CAN_Test_02_STM1\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "CAN_Test_02_STM1.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\vbmat\OneDrive\Desktop\FSAE stuff\CAN\CAN_Test_02_STM1\CAN_Test_02_STM1\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="CAN_Test_02_STM1.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+CAN_Test_02_STM1.elf: $(OBJS) $(USER_OBJS) C:\Users\Randon\Desktop\uvfr\code\MCC-EVBrain-EVSTM\Projects\CAN-Test\CAN_Test_02_STM1\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "CAN_Test_02_STM1.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Randon\Desktop\uvfr\code\MCC-EVBrain-EVSTM\Projects\CAN-Test\CAN_Test_02_STM1\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="CAN_Test_02_STM1.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
