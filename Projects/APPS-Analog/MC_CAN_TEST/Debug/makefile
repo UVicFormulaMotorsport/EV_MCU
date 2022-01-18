@@ -34,34 +34,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := CAN_Test_02_STM2
+BUILD_ARTIFACT_NAME := MC_CAN_TEST
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-CAN_Test_02_STM2.elf \
+MC_CAN_TEST.elf \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-CAN_Test_02_STM2.list \
+MC_CAN_TEST.list \
 
 OBJCOPY_BIN += \
-CAN_Test_02_STM2.bin \
+MC_CAN_TEST.bin \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: CAN_Test_02_STM2.elf secondary-outputs
+main-build: MC_CAN_TEST.elf secondary-outputs
 
 # Tool invocations
-CAN_Test_02_STM2.elf: $(OBJS) $(USER_OBJS) C:\Users\Randon\Desktop\uvfr\code\MCC-EVBrain-EVSTM\Projects\CAN-Test\CAN_Test_02_STM2\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "CAN_Test_02_STM2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Randon\Desktop\uvfr\code\MCC-EVBrain-EVSTM\Projects\CAN-Test\CAN_Test_02_STM2\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="CAN_Test_02_STM2.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+MC_CAN_TEST.elf: $(OBJS) $(USER_OBJS) C:\Users\Randon\Desktop\uvfr\code\MCC-EVBrain-EVSTM\Projects\APPS-Analog\MC_CAN_TEST\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "MC_CAN_TEST.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Randon\Desktop\uvfr\code\MCC-EVBrain-EVSTM\Projects\APPS-Analog\MC_CAN_TEST\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="MC_CAN_TEST.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -70,19 +70,19 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-CAN_Test_02_STM2.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "CAN_Test_02_STM2.list"
+MC_CAN_TEST.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "MC_CAN_TEST.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-CAN_Test_02_STM2.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "CAN_Test_02_STM2.bin"
+MC_CAN_TEST.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "MC_CAN_TEST.bin"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) CAN_Test_02_STM2.bin CAN_Test_02_STM2.elf CAN_Test_02_STM2.list default.size.stdout
+	-$(RM) MC_CAN_TEST.bin MC_CAN_TEST.elf MC_CAN_TEST.list default.size.stdout
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_BIN)

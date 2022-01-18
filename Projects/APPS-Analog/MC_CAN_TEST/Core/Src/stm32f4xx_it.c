@@ -1,21 +1,21 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file    stm32f4xx_it.c
-  * @brief   Interrupt Service Routines.
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file    stm32f4xx_it.c
+ * @brief   Interrupt Service Routines.
+ ******************************************************************************
+ * @attention
+ *
+ * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
+ * All rights reserved.</center></h2>
+ *
+ * This software component is licensed by ST under Ultimate Liberty license
+ * SLA0044, the "License"; You may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at:
+ *                             www.st.com/SLA0044
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
@@ -23,6 +23,8 @@
 #include "stm32f4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <string.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -57,11 +59,7 @@
 
 /* External variables --------------------------------------------------------*/
 extern CAN_HandleTypeDef hcan1;
-extern CAN_TxHeaderTypeDef pTxHeader; //CAN Tx Header
-extern CAN_RxHeaderTypeDef pRxHeader; //CAN Rx Header
-extern uint32_t pTxMailbox;
-extern uint8_t a,r; //transmit, receive byte through CAN
-extern CAN_FilterTypeDef sFilterConfig; //CAN filter configuration
+extern UART_HandleTypeDef huart2;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -78,9 +76,9 @@ void NMI_Handler(void)
 
   /* USER CODE END NonMaskableInt_IRQn 0 */
   /* USER CODE BEGIN NonMaskableInt_IRQn 1 */
-  while (1)
-  {
-  }
+	while (1)
+	{
+	}
   /* USER CODE END NonMaskableInt_IRQn 1 */
 }
 
@@ -210,13 +208,15 @@ void SysTick_Handler(void)
 void EXTI0_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI0_IRQn 0 */
-for (int n=0;n<1000000;n++); //delay
-if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)) //check user button
-{
-	//increase a variable and transmit it through CAN
-	a++;
-	HAL_CAN_AddTxMessage(&hcan1, &pTxHeader, &a, &pTxMailbox); //transmit over CAN
-}
+	char msg[100];
+	uint8_t regID =
+	// Transmit over serial
+	sprintf(msg, "Sending value:%d to id:%lu\n", sensor_raw, MC_TX);
+	HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), 1000);
+
+	// Transmit over CAN
+	HAL_CAN_AddTxMessage(&hcan1, &pTxHeader, &sensor_raw, &pTxMailbox);
+
   /* USER CODE END EXTI0_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
   /* USER CODE BEGIN EXTI0_IRQn 1 */
@@ -234,12 +234,32 @@ void CAN1_RX0_IRQHandler(void)
   /* USER CODE END CAN1_RX0_IRQn 0 */
   HAL_CAN_IRQHandler(&hcan1);
   /* USER CODE BEGIN CAN1_RX0_IRQn 1 */
-  HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pRxHeader, &r); //receive byte
-  GPIOD->ODR = r<<12; //output received byte, starting at Pin D12
+	HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pRxHeader, rcvData); //receive byte
+	rcvDataVal = 0;
+	rcvDataVal = (rcvData[0] | rcvData[1] << 8);
+
+	char msg[100];
+	// Transmit over serial
+	sprintf(msg, "Received value:%d from id:%lu\n", rcvDataVal, MC_RX);
+	HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), 1000);
   /* USER CODE END CAN1_RX0_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USART2 global interrupt.
+  */
+void USART2_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART2_IRQn 0 */
+
+  /* USER CODE END USART2_IRQn 0 */
+  HAL_UART_IRQHandler(&huart2);
+  /* USER CODE BEGIN USART2_IRQn 1 */
+
+  /* USER CODE END USART2_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
 
 /* USER CODE END 1 */
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+
