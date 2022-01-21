@@ -44,7 +44,20 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+extern CAN_HandleTypeDef hcan1;
+extern UART_HandleTypeDef huart2;
 
+extern CAN_TxHeaderTypeDef pTxHeader; //CAN Tx Header
+extern CAN_RxHeaderTypeDef pRxHeader; //CAN Rx Header
+extern uint32_t pTxMailbox;
+extern uint8_t sensor_raw; //transmit, receive byte through CAN
+extern uint8_t rcvData[];
+extern uint8_t tData[];
+extern uint32_t rcvDataVal;
+extern CAN_FilterTypeDef sFilterConfig; //CAN filter configuration
+
+extern uint32_t MC_RX;
+extern uint32_t MC_TX;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -59,7 +72,6 @@
 
 /* External variables --------------------------------------------------------*/
 extern CAN_HandleTypeDef hcan1;
-extern UART_HandleTypeDef huart2;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -209,13 +221,24 @@ void EXTI0_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI0_IRQn 0 */
 	char msg[100];
-	uint8_t regID =
+	uint8_t regId = 0x1B; // Register you are reading from or writing to
+	uint8_t readCommandId = 0x3D; // Value to tell the controller we are reading
 	// Transmit over serial
-	sprintf(msg, "Sending value:%d to id:%lu\n", sensor_raw, MC_TX);
+	//sprintf(msg, "Sending value:%d to id:%lu\n", sensor_raw, MC_TX);
+	sprintf(msg, "Reading ID:0x1B from %lu\n\r", MC_TX);
 	HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), 1000);
 
 	// Transmit over CAN
-	HAL_CAN_AddTxMessage(&hcan1, &pTxHeader, &sensor_raw, &pTxMailbox);
+	// Write to controller
+	//tData[0] = regID;
+	//tData[1] = sensor_raw;
+	//tData[2] = sensor_raw >> 8;
+
+	// Read from controller
+	tData[0] = readCommandId;
+	tData[1] = regId;
+
+	HAL_CAN_AddTxMessage(&hcan1, &pTxHeader, tData, &pTxMailbox);
 
   /* USER CODE END EXTI0_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
@@ -236,27 +259,13 @@ void CAN1_RX0_IRQHandler(void)
   /* USER CODE BEGIN CAN1_RX0_IRQn 1 */
 	HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pRxHeader, rcvData); //receive byte
 	rcvDataVal = 0;
-	rcvDataVal = (rcvData[0] | rcvData[1] << 8);
+	rcvDataVal = (rcvData[1] | rcvData[2] << 8);
 
 	char msg[100];
 	// Transmit over serial
-	sprintf(msg, "Received value:%d from id:%lu\n", rcvDataVal, MC_RX);
+	sprintf(msg, "Received value:%lu from id:%lu\n", rcvDataVal, MC_RX);
 	HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), 1000);
   /* USER CODE END CAN1_RX0_IRQn 1 */
-}
-
-/**
-  * @brief This function handles USART2 global interrupt.
-  */
-void USART2_IRQHandler(void)
-{
-  /* USER CODE BEGIN USART2_IRQn 0 */
-
-  /* USER CODE END USART2_IRQn 0 */
-  HAL_UART_IRQHandler(&huart2);
-  /* USER CODE BEGIN USART2_IRQn 1 */
-
-  /* USER CODE END USART2_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

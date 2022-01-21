@@ -113,11 +113,10 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
 	//Initialize CAN header - standard id type, set standard Id = filter ID of other device
-	CAN_TxHeader_Init(&pTxHeader, 2, CAN_ID_STD, CAN_RTR_DATA, MC_TX);
+	CAN_TxHeader_Init(&pTxHeader, 3, CAN_ID_STD, CAN_RTR_DATA, MC_TX);
 
 	//Initialize CAN filter - filter ID = TxHeader Id of other device, 32 bit scale. Enables and configs filter.
-	CAN_Filter_Init(&hcan1, &sFilterConfig, CAN_FILTER_FIFO0, MC_RX, 0, 0, 0,
-			CAN_FILTERSCALE_32BIT);
+	CAN_Filter_Init(&hcan1, &sFilterConfig, CAN_FILTER_FIFO0, MC_RX, 0, 0, 0, CAN_FILTERSCALE_32BIT);
 
 	//start CAN
 	HAL_CAN_Start(&hcan1);
@@ -250,11 +249,11 @@ static void MX_CAN1_Init(void)
 
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 21;
+  hcan1.Init.Prescaler = 12;
   hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan1.Init.TimeSeg1 = CAN_BS1_12TQ;
-  hcan1.Init.TimeSeg2 = CAN_BS2_4TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_11TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan1.Init.TimeTriggeredMode = DISABLE;
   hcan1.Init.AutoBusOff = DISABLE;
   hcan1.Init.AutoWakeUp = DISABLE;
