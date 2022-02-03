@@ -17,7 +17,6 @@ RM := rm -rf
 -include Core/Startup/subdir.mk
 -include Core/Src/demanded_torque_calculator_grt_rtw/subdir.mk
 -include Core/Src/subdir.mk
--include subdir.mk
 -include objects.mk
 
 ifneq ($(MAKECMDGOALS),clean)
@@ -66,8 +65,8 @@ all: main-build
 main-build: APPS-Analog.elf secondary-outputs
 
 # Tool invocations
-APPS-Analog.elf: $(OBJS) $(USER_OBJS) C:\Users\vbmat\STM32CubeIDE\workspace_1.5.0\MCC-EVBrain-EVSTM\Projects\APPS-Analog\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "APPS-Analog.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\vbmat\STM32CubeIDE\workspace_1.5.0\MCC-EVBrain-EVSTM\Projects\APPS-Analog\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="APPS-Analog.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+APPS-Analog.elf: $(OBJS) $(USER_OBJS) C:\Users\rando\OneDrive\Desktop\uvfr\MCC-EVBrain-EVSTM\Projects\APPS-Analog\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "APPS-Analog.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\rando\OneDrive\Desktop\uvfr\MCC-EVBrain-EVSTM\Projects\APPS-Analog\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="APPS-Analog.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -88,7 +87,7 @@ APPS-Analog.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 
 # Other Targets
 clean:
-	-$(RM) $(SIZE_OUTPUT)$(OBJDUMP_LIST)$(EXECUTABLES)$(OBJS)$(S_DEPS)$(S_UPPER_DEPS)$(C_DEPS)$(OBJCOPY_BIN) APPS-Analog.elf
+	-$(RM) APPS-Analog.bin APPS-Analog.elf APPS-Analog.list default.size.stdout
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_BIN)
@@ -100,6 +99,6 @@ fail-specified-linker-script-missing:
 warn-no-linker-script-specified:
 	@echo 'Warning: No linker script specified. Check the linker settings in the build configuration.'
 
-.PHONY: all clean dependents fail-specified-linker-script-missing warn-no-linker-script-specified
+.PHONY: all clean dependents main-build fail-specified-linker-script-missing warn-no-linker-script-specified
 
 -include ../makefile.targets

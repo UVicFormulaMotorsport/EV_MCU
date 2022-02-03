@@ -25,7 +25,6 @@
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdio.h>
-#include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -72,7 +71,6 @@ extern uint32_t MC_TX;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
 extern CAN_HandleTypeDef hcan1;
 /* USER CODE BEGIN EV */
 
@@ -224,27 +222,28 @@ void EXTI0_IRQHandler(void)
   /* USER CODE BEGIN EXTI0_IRQn 0 */
 	char msg[100];
 	uint8_t regId = 0x1B; // Register you are reading from or writing to
-	uint8_t readCommandId = 0x3D; // Value to tell the controller we are reading
+	uint8_t readCommandId = 0x3D; // Value to tell the controller we are reading something
 	// Transmit over serial
 	//sprintf(msg, "Sending value:%d to id:%lu\n", sensor_raw, MC_TX);
-	sprintf(msg, "Sending read request for ID:0x1B from %lu\n\r", MC_RX);
-	uint8_t *msg_int = (uint8_t *)msg;
-	HAL_UART_Transmit(&huart2, (uint8_t*) msg, strlen(msg), 1000);
+	sprintf(msg, "Sending read request for ID:0x1B to %lu\n\r", MC_RX);
+	HAL_UART_Transmit(&huart2, (uint8_t *)msg, strlen(msg), 1000);
 	// Transmit over CAN
-	// Write to controller
-	//tData[0] = regID;
-	//tData[1] = sensor_raw;
-	//tData[2] = sensor_raw >> 8;
-
-	// Read from controller
 	tData[0] = readCommandId;
 	tData[1] = regId;
 
 	HAL_CAN_AddTxMessage(&hcan1, &pTxHeader, tData, &pTxMailbox);
-	while (CDC_Transmit_FS(msg_int, strlen(msg)) != USBD_OK)
-	{
-	}
 
+
+	// Try writing the motor maximum rpm
+	sprintf(msg, "Sending write request for ID:0x59 to %lu\n\r", MC_RX);
+	HAL_UART_Transmit(&huart2, (uint8_t *)msg, strlen(msg), 1000);
+
+	regId = 0x59;
+	tData[0] = regId;
+	tData[1] = 0xFF;
+	tData[2] = 0;
+
+	HAL_CAN_AddTxMessage(&hcan1, &pTxHeader, tData, &pTxMailbox);
   /* USER CODE END EXTI0_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
   /* USER CODE BEGIN EXTI0_IRQn 1 */
@@ -268,27 +267,10 @@ void CAN1_RX0_IRQHandler(void)
 
 	char msg[100];
 	// Transmit over serial
-	sprintf(msg, "Received value:%lu from id:%lu\n", rcvDataVal, MC_RX);
-	uint8_t *msg_int = (uint8_t *)msg;
-	HAL_UART_Transmit(&huart2, msg_int, strlen(msg), 1000);
-	while (CDC_Transmit_FS(msg_int, strlen(msg)) != USBD_OK)
-	{
-	}
+	sprintf(msg, "Received value:%lu from id:%lu\n\r", rcvDataVal, MC_RX);
+	HAL_UART_Transmit(&huart2, (uint8_t *)msg, strlen(msg), 1000);
+
   /* USER CODE END CAN1_RX0_IRQn 1 */
-}
-
-/**
-  * @brief This function handles USB On The Go FS global interrupt.
-  */
-void OTG_FS_IRQHandler(void)
-{
-  /* USER CODE BEGIN OTG_FS_IRQn 0 */
-
-  /* USER CODE END OTG_FS_IRQn 0 */
-  HAL_PCD_IRQHandler(&hpcd_USB_OTG_FS);
-  /* USER CODE BEGIN OTG_FS_IRQn 1 */
-
-  /* USER CODE END OTG_FS_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
