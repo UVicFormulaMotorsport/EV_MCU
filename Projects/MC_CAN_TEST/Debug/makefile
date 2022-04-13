@@ -60,8 +60,8 @@ all: main-build
 main-build: MC_CAN_TEST.elf secondary-outputs
 
 # Tool invocations
-MC_CAN_TEST.elf: $(OBJS) $(USER_OBJS) C:\Users\rando\OneDrive\Desktop\uvfr\MCC-EVBrain-EVSTM\Projects\APPS-Analog\MC_CAN_TEST\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "MC_CAN_TEST.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\rando\OneDrive\Desktop\uvfr\MCC-EVBrain-EVSTM\Projects\APPS-Analog\MC_CAN_TEST\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="MC_CAN_TEST.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+MC_CAN_TEST.elf: $(OBJS) $(USER_OBJS) C:\Users\rando\Desktop\UVFR\MCC-EVBrain-EVSTM\Projects\APPS-Analog\MC_CAN_TEST\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "MC_CAN_TEST.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\rando\Desktop\UVFR\MCC-EVBrain-EVSTM\Projects\APPS-Analog\MC_CAN_TEST\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="MC_CAN_TEST.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
