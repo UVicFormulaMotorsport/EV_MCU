@@ -34,7 +34,7 @@ void setup()
   Serial.begin(9600);
   while(!Serial) 
   {
-    ; // wait for serial port to connect. Needed for native USB port only
+    ; // wait for serial port to connect
   }
   
   // Init SD card  
@@ -52,7 +52,7 @@ void setup()
   tmrpcm.setVolume(6); 
 
   // Set RTD signal interupt
-  attachInterrupt(digitalPinToInterrupt(RTD_sig_pin), rtdInterupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(RTD_sig_pin), rtdInterrupt, RISING);
 
   // Set initial car state
   CAR_STATE = NOT_RTD; 
@@ -77,19 +77,18 @@ void playSound()
 
   // Wait until sound is finished playing
   while(tmrpcm.isPlaying())
-  {
-    ;  
+  { 
   }
   
   // Send pulse to STM when finished playing
   digitalWrite(RTD_out_pin, HIGH);
   delay(1);
   digitalWrite(RTD_out_pin, HIGH);
-  Serial.println("Sound finished"); 
+  Serial.println("Sound finished");
   return;
 }
 
-void rtdInterupt()
+void rtdInterrupt()
 {
   if(CAR_STATE == NOT_RTD)
   {

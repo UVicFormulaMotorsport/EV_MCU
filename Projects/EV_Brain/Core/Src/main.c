@@ -56,13 +56,13 @@ SPI_HandleTypeDef hspi1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-CAN_TxHeaderTypeDef pTxHeader; //CAN Tx Header
 CAN_RxHeaderTypeDef pRxHeader; //CAN Rx Header
 
+CAN_TxHeaderTypeDef setpointTxHeader; //CAN Tx Header
 CAN_TxHeaderTypeDef aPedPTxHeader; // Accelerator Pedal % Tx Header
-CAN_TxHeaderTypeDef aPedRTxHeader; // Accelerator Pedal R Tx Header
+CAN_TxHeaderTypeDef aPedRTxHeader; // Accelerator Pedal Raw Tx Header
 CAN_TxHeaderTypeDef bPedPTxHeader; // Brake Pedal % Tx Header
-CAN_TxHeaderTypeDef bPedRTxHeader; // Brake Pedal R Tx Header
+CAN_TxHeaderTypeDef bPedRTxHeader; // Brake Pedal Raw Tx Header
 
 CAN_TxHeaderTypeDef flagsTxHeader; // Implausible state Tx header
 
@@ -74,15 +74,17 @@ uint32_t MC_TX = 0x101;
 // Constants for the pedal map
 const uint8_t REGEN = 0;
 const float GAMMA = 1;
+const uint32_t A_PEDAL_RAW_MAX = 4095;
+const uint32_t B_PEDAL_RAW_MAX = 4095;
 
-float dmd_trq; // demanded torque
+float dmd_trq; // Demanded torque
 float mtr_spd = 0; // motor speed
 float max_cnt_pwr = 100; // max continuous power
 float output_percent; // percentage of current max torque to output
 
 uint8_t tData[8] = { 0 }; // can message data
 uint16_t StatusFlags;
-uint16_t trq_setpoint; // torque setpoint
+uint16_t trq_setpoint; // Torque setpoint
 uint8_t IMPLAUSIBLE_STATE;
 uint8_t PEAK_TORQUE_MODE;
 uint8_t READY_TO_DRIVE;
@@ -149,6 +151,8 @@ int plausibility_check(float ap_percent, float bp_percent, uint8_t *IMPLAUSIBLE_
 	// If in an implausible state, check if the accelerator pedal
 	// has dropped below 5 percent, in this case, update state and return true
 	// otherwise return false
+
+	// TODO: Check for short or open circuit
 	if (*IMPLAUSIBLE_STATE == true)
 	{
 		if (ap_percent < 5)
@@ -220,14 +224,16 @@ void driving_loop()
 
 	// Get ADC values
 	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, 1000);
 	ap_raw = HAL_ADC_GetValue(&hadc1);
-	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, 10);
 	bp_raw = HAL_ADC_GetValue(&hadc1);
+	HAL_ADC_Stop(&hadc1);
 
-	// Convert [sensor value] -> [% throttle activated]
-	ap_percent = (ap_raw / 4095.0) * 100;
-	bp_percent = (bp_raw / 4095.0) * 100;
+	printf("AP_RAW - %f, AP_PERCENT - %f\n\r", ap_raw, ap_percent);
+
+	// Convert [sensor value] -> [% activation]
+	ap_percent = (ap_raw / A_PEDAL_RAW_MAX) * 100;
+	bp_percent = (bp_raw / S_PEDAL_RAW_MAX) * 100;
 
 	uint32_t ap_percent_i = (uint32_t) ap_percent;
 	uint32_t bp_percent_i = (uint32_t) bp_percent;
@@ -260,17 +266,6 @@ void driving_loop()
 
 		max_trq = 100;
 		dmd_trq = pedal_map(ap_percent, max_trq);
-
-		// Set inputs for torque_calculator
-		//.regen_percentage = regen_percent; // regen not yet implemented
-		//demanded_torque_calculator_U.throttle = ap_percent * 100;
-		//demanded_torque_calculator_U.max_torque = max_trq;
-
-		//Step (calculate model outputs from inputs)
-		//demanded_torque_calculator_step();
-
-		// Get outputs from torque_calculator object
-		//dmd_trq = demanded_torque_calculator_Y.demanded_torque;
 	}
 	else
 	{
@@ -285,7 +280,7 @@ void driving_loop()
 	// Send CAN message
 	// Split the setpoint value into 2 byte blocks
 	uint32_t trq_setpoint_mod = (trq_setpoint << 8) | 0x90;
-	transmit_result = CANsend(&hcan1, &pTxHeader, trq_setpoint_mod, &pTxMailbox);
+	transmit_result = CANsend(&hcan1, &setpointTxHeader, trq_setpoint_mod, &pTxMailbox);
 
 	// Convert to string and print to serial
 	sprintf(msg, "AP_RAW - %lu, AP_PERCENT - %lu, BP_RAW - %lu, BP_PERCENT - %lu, SP - %i\r\n", ap_raw_i, ap_percent_i,
@@ -305,7 +300,7 @@ void ready_to_drive_loop()
 	// Check if button is pressed
 	if((GPIOA->IDR & GPIO_PIN_0) == true)
 	{
-		// Send signal to arduino
+		// Send the RTD signal
 		GPIOB->ODR |= GPIO_PIN_1;
 
 		// Wait for response
@@ -315,8 +310,7 @@ void ready_to_drive_loop()
 		// Set signal back to low
 		GPIOB->ODR &= ~GPIO_PIN_1;
 
-		// This is commented out to test the ready to drive
-		READY_TO_DRIVE = false;
+		READY_TO_DRIVE = true;
 	}
 	return;
 }
@@ -374,13 +368,13 @@ int main(void)
 	//interrupt on message pending
 	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
+	// Start ADC
+	HAL_ADC_Start(&hadc1);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
-	// Initialize torque calculator object
-	//demanded_torque_calculator_initialize();
 
 	// Set states
 	READY_TO_DRIVE = false;
@@ -389,7 +383,6 @@ int main(void)
 
 	while (1)
 	{
-
 		if(READY_TO_DRIVE == true)
 		{
 			driving_loop();
@@ -403,9 +396,6 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	}
-
-	// Terminate torque calculator object
-	//demanded_torque_calculator_terminate();
 
   /* USER CODE END 3 */
 }

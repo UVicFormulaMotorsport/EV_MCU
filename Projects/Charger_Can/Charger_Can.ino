@@ -179,8 +179,5 @@ void loop() {
     can_send(MAX_VOLTAGE, MAX_CURRENT, START_CHARGING);
   }
 
-  //digitalWrite(SHUTDOWN_TRIGGER_PIN, LOW);
-  //delay(3000);
-  //digitalWrite(SHUTDOWN_TRIGGER_PIN, HIGH);
   delay(3000);
 }

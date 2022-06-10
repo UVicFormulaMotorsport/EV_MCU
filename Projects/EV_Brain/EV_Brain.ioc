@@ -2,7 +2,8 @@
 ADC1.Channel-0\#ChannelRegularConversion=ADC_CHANNEL_10
 ADC1.Channel-1\#ChannelRegularConversion=ADC_CHANNEL_11
 ADC1.ContinuousConvMode=ENABLE
-ADC1.IPParameters=Rank-0\#ChannelRegularConversion,Channel-0\#ChannelRegularConversion,SamplingTime-0\#ChannelRegularConversion,NbrOfConversionFlag,master,Rank-1\#ChannelRegularConversion,Channel-1\#ChannelRegularConversion,SamplingTime-1\#ChannelRegularConversion,NbrOfConversion,ContinuousConvMode,InjNumberOfConversion
+ADC1.EOCSelection=ADC_EOC_SINGLE_CONV
+ADC1.IPParameters=Rank-0\#ChannelRegularConversion,Channel-0\#ChannelRegularConversion,SamplingTime-0\#ChannelRegularConversion,NbrOfConversionFlag,master,Rank-1\#ChannelRegularConversion,Channel-1\#ChannelRegularConversion,SamplingTime-1\#ChannelRegularConversion,NbrOfConversion,ContinuousConvMode,InjNumberOfConversion,EOCSelection
 ADC1.InjNumberOfConversion=0
 ADC1.NbrOfConversion=2
 ADC1.NbrOfConversionFlag=1
