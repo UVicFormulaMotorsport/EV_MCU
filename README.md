@@ -1,5 +1,5 @@
-# MCC-EVBrain-EVSTM
-A repository containing projects related EV
+# EV_STM
+This repository contain software related projects for the EV
 
 #### REQUIREMENTS:
 * Each project must have it's own README.md containing a description
