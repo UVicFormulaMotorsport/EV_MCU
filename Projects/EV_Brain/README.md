@@ -22,3 +22,6 @@ The system has grown in complexity since it was started, it is probably worth co
 - Integrate and test the RTD functionality with the RTD board
 - Set the pedal sensor ranges and incorporate them into the implausibility checks
 - May need to implement cooling control for the motor and motor controller
+
+
+### References
