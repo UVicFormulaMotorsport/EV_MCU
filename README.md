@@ -1,4 +1,4 @@
-# EV_STM
+# EV_MCU
 This repository contain software related projects for the EV
 
 #### REQUIREMENTS:
