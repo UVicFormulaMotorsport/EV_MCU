@@ -133,7 +133,7 @@ void setup()
   mcp2515.reset();
     
   Serial.println("CAN setup start");
-  int result = mcp2515.setBitrate(CAN_250KBPS, MCP_8MHZ);
+  int result = mcp2515.setBitrate(CAN_500KBPS, MCP_8MHZ);
   if(result != 0)
   {
     Serial.println(result);
