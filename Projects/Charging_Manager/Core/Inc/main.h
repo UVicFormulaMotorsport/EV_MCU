@@ -53,7 +53,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+void update_charger(uint16_t max_voltage, uint16_t max_current, uint8_t charging_status);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

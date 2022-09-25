@@ -31,6 +31,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define false 0
+#define true !(false)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -48,6 +50,17 @@ I2C_HandleTypeDef hi2c1;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
+uint16_t MAX_VOLTAGE = 0;
+uint16_t MAX_CURRENT = 0;
+uint8_t CHARGER_OUTPUT_STATUS = 0;
+// CANBUS VARS
+CAN_TxHeaderTypeDef chargerTxHeader; //CAN Tx Header
+CAN_RxHeaderTypeDef chargerRxHeader; //CAN Rx Header
+uint8_t tData[8] = { 0 }; // can message data
+uint32_t pTxMailbox; // Message mailbox
+CAN_FilterTypeDef sFilterConfig; //CAN filter configuration
+uint32_t CHARGER_RX = 0x18FF50E5;
+uint32_t CHARGER_TX = 0x1806E5F4;
 
 /* USER CODE END PV */
 
@@ -64,6 +77,55 @@ void I2C_out(unsigned char);
 void I2C_Start(void);
 void I2C_Stop(void);
 void Show(unsigned char);
+
+void CAN_TxHeader_Init(CAN_TxHeaderTypeDef *pTxHeader, uint32_t dlc, uint32_t ide, uint32_t rtr, uint32_t stdId)
+{
+	pTxHeader->DLC = dlc; // 'dlc' bytes of data
+	pTxHeader->IDE = ide;
+	pTxHeader->RTR = rtr;
+	pTxHeader->ExtId = stdId; //set standard identifier.
+}
+
+void CAN_RxHeader_Init(CAN_RxHeaderTypeDef *pRxHeader, uint32_t dlc, uint32_t ide, uint32_t rtr, uint32_t extId)
+{
+	pRxHeader->ExtId = extId;
+	pRxHeader->IDE = ide;
+	pRxHeader->RTR = rtr;
+	pRxHeader->DLC = dlc;
+}
+
+void CAN_Filter_Init(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sFilterConfig, uint32_t fifo, uint32_t highId,
+		uint32_t lowId, uint32_t highMask, uint32_t lowMask, uint32_t scale)
+{
+	sFilterConfig->FilterFIFOAssignment = fifo;
+	sFilterConfig->FilterIdHigh = highId << 5; //must be shifted 5 bits to the left according to reference manual
+	sFilterConfig->FilterIdLow = lowId;
+	sFilterConfig->FilterMaskIdHigh = highMask << 5;
+	sFilterConfig->FilterMaskIdLow = lowMask;
+	sFilterConfig->FilterScale = scale;
+	sFilterConfig->FilterActivation = CAN_FILTER_ENABLE; //enable activation
+
+	HAL_CAN_ConfigFilter(hcan, sFilterConfig); //config CAN filter
+}
+
+// Send can message to charger
+void update_charger(uint16_t max_voltage, uint16_t max_current, uint8_t charging_status)
+{
+	// Max voltage high byte
+	tData[0] = (max_voltage >> 8) & 0xFF;
+	// Max voltage low byte
+	tData[1] = max_voltage & 0xFF;
+	// Max current high byte
+	tData[2] = (max_current >> 8) & 0xFF;
+	// Max current low byte
+	tData[3] = max_current & 0xFF;
+	// Charging status
+	tData[4] = charging_status & 0xFF;
+
+	// Send message
+	HAL_CAN_AddTxMessage(&hcan, &chargerTxHeader, tData, &pTxMailbox);
+	return;
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -106,6 +168,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
   // Turn on led
   GPIOB -> ODR |= GPIO_PIN_5;
+  CAN_TxHeader_Init(&chargerTxHeader, 8, CAN_ID_EXT, CAN_RTR_DATA, CHARGER_TX);
+  CAN_RxHeader_Init(&chargerRxHeader, 8, CAN_ID_EXT, CAN_RTR_DATA, CHARGER_RX);
+  CAN_Filter_Init(&hcan, &sFilterConfig, CAN_FILTER_FIFO0, CHARGER_RX, 0, CHARGER_RX, 0, CAN_FILTERSCALE_32BIT);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -113,7 +178,12 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+	if(CHARGER_OUTPUT_STATUS == 1)
+	{
+		update_charger(MAX_VOLTAGE, MAX_CURRENT, CHARGER_OUTPUT_STATUS);
+	}
+	// TODO: Check if the HAL_Delay will prevent out CAN/UART interputs from triggering
+	HAL_Delay(500);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
