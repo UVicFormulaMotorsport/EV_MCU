@@ -62,7 +62,16 @@ uint8_t uartRxData[8] = { 0 };
 extern CAN_HandleTypeDef hcan;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
+extern CAN_TxHeaderTypeDef chargerTxHeader; //CAN Tx Header
+extern CAN_RxHeaderTypeDef chargerRxHeader; //CAN Rx Header
 
+extern const uint16_t BMS_ID1;//BMS uses standard length identifiers, therefore uint_16 is used
+extern const uint16_t BMS_ID2;
+extern const uint16_t BMS_ID3;
+extern uint16_t MAX_VOLTAGE;
+extern uint16_t MAX_CURRENT;
+extern uint16_t PILOT_FLAGS;
+extern uint8_t CHARGER_OUTPUT_STATUS;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -213,7 +222,19 @@ void CAN1_RX1_IRQHandler(void)
   HAL_CAN_IRQHandler(&hcan);
   /* USER CODE BEGIN CAN1_RX1_IRQn 1 */
 	uint8_t error_flag = false;
+	uint32_t msg_id = 0;
 	HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &chargerRxHeader, canRxData);
+
+	if(chargerRxHeader.IDE == CAN_ID_STD){ //determines the ID of the message
+		msg_id = chargerRxHeader.StdId;
+	} else {
+		msg_id = chargerRxHeader.ExtId;
+	}
+
+	if(msg_id == BMS_ID1 || msg_id == BMS_ID2 || msg_id == BMS_ID3){
+
+	}
+
 
 	uint16_t voltage = (canRxData[0] << 8) + canRxData[1];
 	uint16_t current = (canRxData[2] << 8) + canRxData[3];
@@ -260,13 +281,14 @@ void USART1_IRQHandler(void)
 	// XXX,YYY where XXX is the max voltage and YYY is the max current. Should be 7 bytes of data
   /*
    * Time for me to commit a sin. We only know the current we can draw from an outlet, we do not know the corresponding output
-   * We shall therefore do a conversion involving the wattage of the charger,
+   * We shall therefore do a conversion involving the power of the charger,
    * based on the max voltage, and our assumptions of the voltage and efficiency of the charger
    *
+   *AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
    *
    *
    *
-   *
+   *this is a cry for help
    *
    *
    *
@@ -283,8 +305,8 @@ void USART1_IRQHandler(void)
 
 	char *ptr;
 	// Set GLOBAL values to the received values
-	MAX_VOLTAGE = (uint16_t)strtol(voltageString, &ptr, 10);
-	MAX_CURRENT_IN = (uint16_t)strtol(currentString, &ptr, 10);
+	MAX_VOLTAGE = (uint16_t)strtol(flagString, &ptr, 10);
+	MAX_CURRENT = (uint16_t)strtol(currentString, &ptr, 10);
 
   /* USER CODE END USART1_IRQn 1 */
 }

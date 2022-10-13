@@ -65,6 +65,10 @@ uint32_t pTxMailbox; // Message mailbox
 CAN_FilterTypeDef sFilterConfig; //CAN filter configuration
 uint32_t CHARGER_RX = 0x18FF50E5;
 uint32_t CHARGER_TX = 0x1806E5F4;
+const uint16_t BMS_ID1 = 0x0000;//BMS uses standard length identifiers, therefore uint_16 is used
+const uint16_t BMS_ID2 = 0x0000;
+const uint16_t BMS_ID3 = 0x0000;
+//what the fuck is happening here?
 
 /* USER CODE END PV */
 
