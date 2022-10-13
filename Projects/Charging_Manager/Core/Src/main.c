@@ -33,6 +33,8 @@
 /* USER CODE BEGIN PD */
 #define false 0
 #define true !(false)
+
+#define RX_BUFFER_SIZE 4;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -41,7 +43,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
- ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc1;
 
 CAN_HandleTypeDef hcan;
 
@@ -52,7 +54,9 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 uint16_t MAX_VOLTAGE = 0;
 uint16_t MAX_CURRENT = 0;
+uint16_t PILOT_FLAGS = 0;
 uint8_t CHARGER_OUTPUT_STATUS = 0;
+
 // CANBUS VARS
 CAN_TxHeaderTypeDef chargerTxHeader; //CAN Tx Header
 CAN_RxHeaderTypeDef chargerRxHeader; //CAN Rx Header
@@ -178,12 +182,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	if(CHARGER_OUTPUT_STATUS == 1)
-	{
-		update_charger(MAX_VOLTAGE, MAX_CURRENT, CHARGER_OUTPUT_STATUS);
-	}
-	// TODO: Check if the HAL_Delay will prevent out CAN/UART interputs from triggering
-	HAL_Delay(500);
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -403,6 +402,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(RST_GPIO_Port, RST_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(SHTDN_Trigger_GPIO_Port, SHTDN_Trigger_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
@@ -420,6 +422,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(SW_Input_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : LCD_RST_Pin */
+  GPIO_InitStruct.Pin = LCD_RST_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LCD_RST_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : SHTDN_Trigger_Pin */
   GPIO_InitStruct.Pin = SHTDN_Trigger_Pin;

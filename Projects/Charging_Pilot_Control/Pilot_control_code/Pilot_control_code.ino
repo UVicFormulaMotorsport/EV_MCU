@@ -132,6 +132,6 @@ int measure_duty_cycle(){
     }
 }
 
-void send_uart_msg(int* status){
+void send_uart_msg(){
   
 }
