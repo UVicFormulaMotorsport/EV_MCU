@@ -54,8 +54,16 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 uint16_t MAX_VOLTAGE = 0;
 uint16_t MAX_CURRENT = 0;
+int16_t Current_current = 0;
 uint16_t PILOT_FLAGS = 0;
 uint8_t CHARGER_OUTPUT_STATUS = 0;
+int8_t minimum_cell_temp = 0;
+int8_t max_cell_temp = 0;
+uint8_t state_of_charge = 0;
+uint8_t BMS_voltage = 0;
+uint32_t BMS_internal_state = 0;
+uint32_t BMS_errors1 = 0;
+uint32_t BMS_errors2 = 0;
 
 // CANBUS VARS
 CAN_TxHeaderTypeDef chargerTxHeader; //CAN Tx Header

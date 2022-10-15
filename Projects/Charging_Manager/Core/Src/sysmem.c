@@ -59,6 +59,8 @@ void *_sbrk(ptrdiff_t incr)
   const uint8_t *max_heap = (uint8_t *)stack_limit;
   uint8_t *prev_heap_end;
 
+
+
   /* Initialize heap end at first call */
   if (NULL == __sbrk_heap_end)
   {

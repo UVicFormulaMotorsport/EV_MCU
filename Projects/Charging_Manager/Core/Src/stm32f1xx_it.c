@@ -217,7 +217,7 @@ void SysTick_Handler(void)
 void CAN1_RX1_IRQHandler(void)
 {
   /* USER CODE BEGIN CAN1_RX1_IRQn 0 */
-
+//the following line configures the CAN Handle typedef
   /* USER CODE END CAN1_RX1_IRQn 0 */
   HAL_CAN_IRQHandler(&hcan);
   /* USER CODE BEGIN CAN1_RX1_IRQn 1 */
@@ -231,7 +231,11 @@ void CAN1_RX1_IRQHandler(void)
 		msg_id = chargerRxHeader.ExtId;
 	}
 
-	if(msg_id == BMS_ID1 || msg_id == BMS_ID2 || msg_id == BMS_ID3){
+	if(msg_id == BMS_ID1){
+
+	}else if(msg_id == BMS_ID2){
+
+	}else if(msg_id == BMS_ID3){
 
 	}
 
@@ -302,7 +306,7 @@ void USART1_IRQHandler(void)
 
 	flagString = strtok((char *)uartRxData, delimiter);
 	currentString = strtok((char *)uartRxData, delimiter);
-
+	 __builtin_bswap32();
 	char *ptr;
 	// Set GLOBAL values to the received values
 	MAX_VOLTAGE = (uint16_t)strtol(flagString, &ptr, 10);

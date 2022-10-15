@@ -133,7 +133,7 @@ void driving_loop_task(void *arguments)
 	bp_raw = HAL_ADC_GetValue(&hadc1);
 	HAL_ADC_Stop(&hadc1);
 
-	printf("AP_RAW - %f, AP_PERCENT - %f\n\r", ap_raw, ap_percent);
+	printf("AP_RAW - %f, AP_PERCENT - %f\n\r", ap_raw, ap_percent); //Print to what??
 
 	// Convert [sensor value] -> [% activation]
 	ap_percent = (ap_raw / A_PEDAL_RAW_MAX) * 100;

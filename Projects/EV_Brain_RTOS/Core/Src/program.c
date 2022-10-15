@@ -21,12 +21,16 @@ extern CAN_HandleTypeDef hcan1;
 extern UART_HandleTypeDef huart2;
 
 // CANBUS VARS
+#define COBID 0x20
 CAN_RxHeaderTypeDef pRxHeader; //CAN Rx Header
 uint8_t tData[8] = { 0 }; // can message data
 uint32_t pTxMailbox; // Message mailbox
 CAN_FilterTypeDef sFilterConfig; //CAN filter configuration
-uint32_t MC_RX = 0x181;
+uint32_t MC_RX = 0x181; // CAN ID LIST
 uint32_t MC_TX = 0x101;
+uint32_t BMS_RX1 = 0x180 + COBID;
+uint32_t BMS_RX2 = 0x280 + COBID;
+uint32_t BMS_RX3 = 0x380 + COBID;
 
 // STATE VARS
 uint8_t IMPLAUSIBLE_STATE;
