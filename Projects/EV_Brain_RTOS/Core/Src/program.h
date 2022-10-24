@@ -10,6 +10,9 @@
 #define FALSE 0
 #define TRUE !(FALSE)
 
+//CAN IDS
+
+
 // Function prototypes
 void CAN_TxHeader_Init(CAN_TxHeaderTypeDef *pTxHeader, uint32_t dlc, uint32_t ide, uint32_t rtr, uint32_t stdId);
 void CAN_Filter_Init(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sFilterConfig, uint32_t fifo, uint32_t highId, uint32_t lowId, uint32_t highMask, uint32_t lowMask, uint32_t scale);

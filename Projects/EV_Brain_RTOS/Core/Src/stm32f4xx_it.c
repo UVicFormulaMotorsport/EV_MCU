@@ -20,6 +20,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "program.h"
 #include "stm32f4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -58,7 +59,10 @@
 /* External variables --------------------------------------------------------*/
 extern CAN_HandleTypeDef hcan1;
 /* USER CODE BEGIN EV */
-
+//CAN Vars
+extern CAN_TxHeaderTypeDef chargerTxHeader; //CAN Tx Header
+extern CAN_RxHeaderTypeDef pRxHeader; //CAN Rx Header
+extern uint8_t tData[8];
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -209,6 +213,9 @@ void CAN1_RX0_IRQHandler(void)
   /* USER CODE END CAN1_RX0_IRQn 0 */
   HAL_CAN_IRQHandler(&hcan1);
   /* USER CODE BEGIN CAN1_RX0_IRQn 1 */
+  //TODO: Read the CAN
+  HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pRxHeader, tData);
+
 
   /* USER CODE END CAN1_RX0_IRQn 1 */
 }
