@@ -1,4 +1,5 @@
 #include <mcp2515.h>
+
 #include <SPI.h>
 
 MCP2515 mcp2515(10);
@@ -7,7 +8,7 @@ MCP2515 mcp2515(10);
 #define STOP_CHARGING 1
 
 #define MAX_VOLTAGE 500
-#define MAX_CURRENT 100
+#define MAX_CURRENT 8
 
 #define SHUTDOWN_TRIGGER_PIN 4
 
@@ -121,10 +122,10 @@ void shdn_int_handler()
 void setup()
 {
   // Setup serial
-  Serial.begin(9600);
+  Serial.begin(19200);
   if(!Serial)
   {
-    Serial.println("Serial setup failed");
+    //Serial.println("Serial setup failed");
     while(1);
   }
   Serial.println("Serial setup complete");
@@ -160,7 +161,7 @@ void setup()
   digitalWrite(SHUTDOWN_TRIGGER_PIN, HIGH);
 
   // Setting interupt handler for shutdown cirtcuit
-  //attachInterrupt(1, shdn_int_handler, RISING);
+  attachInterrupt(1, shdn_int_handler, RISING);
 
 
   Serial.println("Setup finished");
@@ -177,7 +178,9 @@ void loop() {
   else
   {
     can_send(MAX_VOLTAGE, MAX_CURRENT, START_CHARGING);
+    delay(1000);
+    can_send(MAX_VOLTAGE, MAX_CURRENT, STOP_CHARGING);
   }
 
-  delay(3000);
+  delay(2000);
 }
