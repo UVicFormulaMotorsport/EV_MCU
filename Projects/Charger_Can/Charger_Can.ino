@@ -129,7 +129,7 @@ void setup()
     while(1);
   }
   Serial.println("Serial setup complete");
- 
+  delay(1000);
   // Setup CAN
   mcp2515.reset();
     
@@ -161,7 +161,7 @@ void setup()
   digitalWrite(SHUTDOWN_TRIGGER_PIN, HIGH);
 
   // Setting interupt handler for shutdown cirtcuit
-  attachInterrupt(1, shdn_int_handler, RISING);
+  //attachInterrupt(1, shdn_int_handler, RISING);
 
 
   Serial.println("Setup finished");

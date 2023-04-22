@@ -57,7 +57,30 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 //system variables
-uint8_t displaycounter;
+#define sys_vars
+enum system_state_t{no_connection, sys_normal, sys_error};
+enum system_state_t system_state = no_connection;
+charge_profile charge_profiles[16] = {
+		{12,570}, //full charge
+		{12,480}, //storage voltage
+		{6, 570}, //gentle full
+		{12, 480},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+};
+
+
+uint8_t current_preset;//the current charging preset
 
 
 
@@ -76,7 +99,7 @@ uint8_t CHARGER_OUTPUT_STATUS = 0;
 int8_t minimum_cell_temp = 0;
 int8_t max_cell_temp = 0;
 uint8_t state_of_charge = 0;
-uint8_t BMS_voltage = 0;
+uint16_t BMS_voltage = 0;
 uint8_t BMS_discrete_outputs = 0;
 uint32_t BMS_internal_state = 0;
 uint32_t BMS_errors1 = 0;
@@ -157,6 +180,11 @@ void update_charger(uint16_t max_voltage, uint16_t max_current, uint8_t charging
 	HAL_CAN_AddTxMessage(&hcan, &chargerTxHeader, tData, &pTxMailbox);
 	return;
 }
+
+void panic(){
+//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -205,9 +233,13 @@ int main(void)
   /* USER CODE BEGIN 2 */
   // Turn on led
   GPIOB -> ODR |= GPIO_PIN_5;
+
   CAN_TxHeader_Init(&chargerTxHeader, 8, CAN_ID_EXT, CAN_RTR_DATA, CHARGER_TX);
   CAN_RxHeader_Init(&chargerRxHeader, 8, CAN_ID_EXT, CAN_RTR_DATA, CHARGER_RX);
-  CAN_Filter_Init(&hcan, &sFilterConfig, CAN_FILTER_FIFO0, CHARGER_RX, 0, CHARGER_RX, 0, CAN_FILTERSCALE_32BIT);
+  CAN_Filter_Init(&hcan, &sFilterConfig, CAN_FILTER_FIFO0, CHARGER_RX, 0, CHARGER_RX, 0, CAN_FILTERSCALE_32BIT); //init CAN
+
+  //initialize LCD and start display loop
+  init_LCD();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -215,7 +247,27 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+	  //check for inputs from user
 
+	  //switch case of doom:
+	  switch(system_state){
+	  case no_connection: //charging station is not plugged in to anything
+
+		  break;
+
+	  case sys_normal: //charging normal
+
+	  	  break;
+
+	  case sys_error: //an error has occurred
+		  panic(); //shit bro
+		  break;
+
+	  default: //yeah idk, how did we even get here?
+
+		  break;
+
+	  }
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

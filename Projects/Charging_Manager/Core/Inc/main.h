@@ -30,6 +30,7 @@ extern "C" {
 #include "stm32f1xx_hal.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -37,7 +38,7 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-typedef struct pilot_struct{
+typedef struct pilot_struct{ //????
 	uint16_t cs_current;
 	uint16_t mains_voltage;
 	uint8_t cs_connected;
@@ -80,8 +81,18 @@ void update_charger(uint16_t max_voltage, uint16_t max_current, uint8_t charging
 #define CHRG_EN_GPIO_Port GPIOA
 #define LED__Pin GPIO_PIN_5
 #define LED__GPIO_Port GPIOB
+
+//Charging preset struct
+typedef struct charge_profile{
+	uint16_t preset_max_current;
+	uint16_t preset_max_voltage;
+
+}charge_profile;
 /* USER CODE BEGIN Private defines */
 #define BMS_COBID 0x20
+
+
+
 //#ifndef CANBUS_VARS
 
 //extern CAN_TxHeaderTypeDef chargerTxHeader; //CAN Tx Header

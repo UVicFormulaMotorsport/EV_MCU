@@ -273,7 +273,7 @@ void CAN1_RX1_IRQHandler(void)
 
 
 	uint16_t voltage = ((uint16_t)canRxData[0] << 8) + canRxData[1];
-	uint16_t current = ((uint16_t)canRxData[2] << 8) + canRxData[3];
+	current_current = ((uint16_t)canRxData[2] << 8) + canRxData[3];
 	uint16_t charger_status = canRxData[4];
 
 	// TODO: Once the display works, we should display these errors

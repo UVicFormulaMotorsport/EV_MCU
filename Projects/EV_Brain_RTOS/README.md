@@ -16,6 +16,7 @@ If an implausibility is detected, torque requests of 0 are sent to the controlle
 For data logging, we will need to set up can messages to request the data that we want to log from the controller. All CAN messages going to the controller should come from the EV brain so we can make use of the CAN timeout feature on the motor controller
 
 The system has grown in complexity since it was started, it is probably worth converting it to RTOS to make task management easier. 
+The system will also be responsible for monitoring the status of various components through CAN as well as dealing with the steering wheel and dash inputs.
 
 ### TODO
 - Convert the system to RTOS
