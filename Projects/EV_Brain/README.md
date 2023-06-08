@@ -19,8 +19,10 @@ This system will be converted to an RTOS for the 2024 season.
 
 To send data to the motor controller, the following data format is used:
 
-___Byte 1___|_____Byte 2_____|_____Byte 3 <br />
+<pre>
+   Byte 1   |     Byte 2     |     Byte 3 <br />
 register ID | byte 0 of data | byte 1 of data
+</pre>
 
 For example, sending data 0xB04F to register 0x3A would look like: <br />
 data[3] = {0x3A, 0x4F, 0xB0}
@@ -60,7 +62,7 @@ Message Format: <br />
 - Bit 4: Enable = 1, Disable = 0
 - Bit 5: 20A circuits = 1, 5A circuit = 0
 
-### TODO
+### TODO:
 - implement ready to drive signal
 - implement motor RPM data request through CAN to calculate torque
 - figure out how the pedal map works
