@@ -19,7 +19,7 @@ This system will be converted to an RTOS for the 2024 season.
 
 To send data to the motor controller, the following data format is used:
 
-   Byte 1   |     Byte 2     |     Byte 3 <br />
+___Byte 1___|_____Byte 2_____|_____Byte 3 <br />
 register ID | byte 0 of data | byte 1 of data
 
 For example, sending data 0xB04F to register 0x3A would look like: <br />
