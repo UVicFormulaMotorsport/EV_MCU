@@ -63,6 +63,15 @@ extern CAN_HandleTypeDef hcan1;
 extern CAN_TxHeaderTypeDef chargerTxHeader; //CAN Tx Header
 extern CAN_RxHeaderTypeDef pRxHeader; //CAN Rx Header
 extern uint8_t tData[8];
+
+extern const uint32_t MC_RX; // CAN ID LIST
+extern const uint32_t MC_TX;
+extern const uint32_t BMS_TX; //figure it out lol
+extern const uint32_t BMS_HEARTBEAT;
+extern const uint32_t BMS_RX1;
+extern const uint32_t BMS_RX2;
+extern const uint32_t BMS_RX3;
+
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -214,8 +223,37 @@ void CAN1_RX0_IRQHandler(void)
   HAL_CAN_IRQHandler(&hcan1);
   /* USER CODE BEGIN CAN1_RX0_IRQn 1 */
   //TODO: Read the CAN
+
+  int msg_id = 0; //integer representation of the incoming message ID
+
+
   HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pRxHeader, tData);
 
+  msg_id = (pRxHeader.IDE == CAN_ID_STD)? pRxHeader.StdId : pRxHeader.ExtId; //if standard id, get standard ID
+
+  switch(msg_id){ //do different things depending on who sent the message
+  case BMS_RX1:
+	  break;
+
+  case BMS_RX2:
+
+	  break;
+
+  case BMS_RX3:
+
+	  break;
+  case BMS_HEARTBEAT:
+
+	  break;
+  case MC_RX:
+
+	  break;
+
+  default: //MSG from unknown sender
+
+	  break;
+
+  }
 
   /* USER CODE END CAN1_RX0_IRQn 1 */
 }

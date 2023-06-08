@@ -88,7 +88,7 @@ void init_LCD(){
 	return; //look for error codes
 }
 
-uint8_t generate_string(){
+int generate_string(){
 //TODO write code for creating the display string
 
 	return 0;

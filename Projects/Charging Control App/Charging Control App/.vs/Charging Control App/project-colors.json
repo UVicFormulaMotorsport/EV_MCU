@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "ProjectMap": {
+    "9e31204f-9d8a-40fc-9bb2-29b9c3b24706": {
+      "ProjectGuid": "9e31204f-9d8a-40fc-9bb2-29b9c3b24706",
+      "DisplayName": "Charging Control App",
+      "ColorIndex": 0
+    }
+  },
+  "NextColorIndex": 1
+}

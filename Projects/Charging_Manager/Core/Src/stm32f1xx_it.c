@@ -264,7 +264,7 @@ void CAN1_RX1_IRQHandler(void)
 
 	}else if(msg_id == BMS_ID3){
 
-	}else if(msg_id != CHARGER_RX){
+	}else if(!(msg_id == CHARGER_RX)){
 		//something's messed up, handle error here:
 
 
@@ -282,7 +282,7 @@ void CAN1_RX1_IRQHandler(void)
 		error_flag = true;
 	}
 
-	if(current > MAX_CURRENT)
+	if(current_current > MAX_CURRENT)
 	{
 		error_flag = true;
 	}
