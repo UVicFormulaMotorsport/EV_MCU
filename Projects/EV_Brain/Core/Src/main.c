@@ -59,51 +59,51 @@ CAN_HandleTypeDef hcan1;
 /* USER CODE BEGIN PV */
 
 // sensor value vars
-unsigned short ap_raw_buff[2] = {0, 0};     // raw accelerator pedal ADC1 values buffer for DMA
-unsigned short ap_raw[2] = {0, 0};          // raw accelerator pedal ADC1 values
-unsigned char ap_percent = 0;               // accelerator pedal value as a percent
+unsigned short acceleratorPedal_ADC1output_buffer[2] = {0, 0}; // raw accelerator pedal ADC1 values buffer for DMA
+unsigned short acceleratorPedal_ADC1output[2] = {0, 0};        // raw accelerator pedal ADC1 values
+unsigned char  acceleratorPedal_percent = 0;                   // accelerator pedal value as a percent
 
-unsigned short bp_raw_buff[2] = {0, 0};     // raw brake pedal ADC2 values buffer for DMA
-unsigned short bp_raw[2] = {0, 0};          // raw brake pedal ADC2 values
-unsigned char bp_percent = 0;               // brake pedal value as a percent
+unsigned short brakePedal_ADC2output_buffer[2] = {0, 0};       // raw brake pedal ADC2 values buffer for DMA
+unsigned short brakePedal_ADC2output[2] = {0, 0};              // raw brake pedal ADC2 values
+unsigned char  brakePedal_percent = 0;                         // brake pedal value as a percent
 
-unsigned short cft_raw_buff[3] = {0, 0, 0}; // raw ADC3 values buffer for DMA
-unsigned short cft_raw[3] = {0, 0, 0};      // raw ADC3 values
-// order: {current, flow, temp}
-unsigned short temp_sensor_value = 0;
-unsigned short flow_sensor_value = 0;
-unsigned short current_sensor_value = 0;
+// cft = {current, flow, temp}
+unsigned short cft_raw_buff[3] = {0, 0, 0};  // raw ADC3 values buffer for DMA
+unsigned short cft_raw[3] = {0, 0, 0};       // raw ADC3 values
+unsigned short temp_sensor_DegreesC = 0;     // degrees C
+unsigned short flow_sensor_LitresPerMin = 0; // L/min
+unsigned short current_sensor_Amperes = 0;   // amps
 
-unsigned char max_torque_available = 0; // stores current max torque available from the motor based on motor rpm
-unsigned short torque_setpoint = 0;     // torque setpoint to send to motor
+unsigned char  max_torque_available = 0; // stores current max torque available from the motor based on motor rpm
+unsigned short torque_setpoint = 0;      // torque setpoint to send to motor
 
 // CAN Device IDs
-unsigned short MotorControllerAccepting = 0x201; // send to this device ID if you're giving the MC a value
-unsigned short MotorControllerSending = 0x181; // you will recieve from this ID if you requested a MC value
-unsigned short PowerDistUnit = 0x710;
+unsigned short MotorControllerCAN_acceptingID = 0x201; // send to this device ID if you're giving the MC a value
+unsigned short MotorControllerCAN_sendingID = 0x181;   // you will recieve from this ID if you requested a MC value
+unsigned short PowerDistUnitCAN_acceptingID = 0x710;
 
 // MC register IDs
-unsigned short MC_desiredTorque_register = 0x90;
-unsigned short MC_ActualRPM_register = 0x30;
+unsigned short MotorControllerCAN_desiredTorque_register = 0x90;
+unsigned short MotorControllerCAN_actualRPM_register = 0x30;
 
 // CAN header templates
-CAN_TxHeaderTypeDef sendMsg_CAN_Header;
-// sendMsg_CAN_Header.StdId = ; // device ID (hex)
-// sendMsg_CAN_Header.ExtId = ; // not using
-sendMsg_CAN_Header.IDE = CAN_ID_STD;
-sendMsg_CAN_Header.RTR = CAN_RTR_DATA;
-sendMsg_CAN_Header.DLC = 3;
-sendMsg_CAN_Header.TransmitGlobalTime = DISABLE;
+CAN_TxHeaderTypeDef sendCAN_headerTemplate;
+// sendCAN_headerTemplate.StdId = ; // device ID (hex)
+// sendCAN_headerTemplate.ExtId = ; // not using
+sendCAN_headerTemplate.IDE = CAN_ID_STD;
+sendCAN_headerTemplate.RTR = CAN_RTR_DATA;
+sendCAN_headerTemplate.DLC = 3;
+sendCAN_headerTemplate.TransmitGlobalTime = DISABLE;
 
 // TODO: figure out how to request data from the MC with this header
-CAN_RxHeaderTypeDef askData_CAN_Header;
-//askData_CAN_Header.StdId = ; // device ID (hex)
-//askData_CAN_Header.ExtId = ; // not using
-askData_CAN_Header.IDE = CAN_ID_STD;
-askData_CAN_Header.RTR = CAN_RTR_DATA;
-askData_CAN_Header.DLC = 3;
-//askData_CAN_Header.Timestamp = ; // what do these two need to be?
-//askData_CAN_Header.FilterMatchIndex = ;
+CAN_RxHeaderTypeDef requestCAN_headerTemplate;
+//requestCAN_headerTemplate.StdId = ; // device ID (hex)
+//requestCAN_headerTemplate.ExtId = ; // not using
+requestCAN_headerTemplate.IDE = CAN_ID_STD;
+requestCAN_headerTemplate.RTR = CAN_RTR_DATA;
+requestCAN_headerTemplate.DLC = 3;
+//requestCAN_headerTemplate.Timestamp = ; // what do these two need to be?
+//requestCAN_headerTemplate.FilterMatchIndex = ;
 
 unsigned long pTxMailbox = 0; // CAN mailbox var
 
@@ -117,12 +117,12 @@ const unsigned char REGEN = 0;
 const float GAMMA = 1;
 
 // max and min potentiometer values
-static const unsigned int AP1_RAW_MAX_ADC_VAL = 0b111111111111;
-static const unsigned int BP1_RAW_MAX_ADC_VAL = 0b111111111111;
-static const unsigned int AP1_RAW_MIN_ADC_VAL = 0b000000000000;
-static const unsigned int BP1_RAW_MIN_ADC_VAL = 0b000000000000;
-unsigned int AP1_RAW_ADC_RANGE = AP1_RAW_MAX_ADC_VAL - AP1_RAW_MIN_ADC_VAL;
-unsigned int BP1_RAW_ADC_RANGE = BP1_RAW_MAX_ADC_VAL - BP1_RAW_MIN_ADC_VAL;
+static const unsigned int AcceleratorPedalSensor1_MAX_ADC_VALUE = 0b111111111111;
+static const unsigned int BrakePedalSensor1_MAX_ADC_VALUE = 0b111111111111;
+static const unsigned int AcceleratorPedalSensor1_MIN_ADC_VALUE = 0b000000000000;
+static const unsigned int BrakePedalSensor1_MIN_ADC_VALUE = 0b000000000000;
+unsigned int AcceleratorPedalSensor1_ADC_RANGE = AcceleratorPedalSensor1_MAX_ADC_VALUE - AcceleratorPedalSensor1_MIN_ADC_VALUE;
+unsigned int BrakePedalSensor1_ADC_RANGE = BrakePedalSensor1_MAX_ADC_VALUE - BrakePedalSensor1_MIN_ADC_VALUE;
 
 // TODO: what is this for?
 unsigned char PEAK_TORQUE_MODE = false;
@@ -130,7 +130,7 @@ unsigned char PEAK_TORQUE_MODE = false;
 unsigned char READY_TO_DRIVE = false;
 
 // TODO: are these values correct? what are they for?
-const unsigned char MAX_CONT_TORQUE = 125;
+const unsigned char MAX_CONTINUOUS_TORQUE = 125;
 const unsigned char MAX_PEAK_TORQUE = 240;
 
 /* USER CODE END PV */
@@ -147,7 +147,7 @@ static void MX_ADC3_Init(void);
 /* USER CODE BEGIN PFP */
 
 // TODO: does this need to be a function, or can the steps just be done in main?
-static void CAN_Filter_Init(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sFilterConfig, unsigned int fifo, unsigned int highId,
+static void Initialize_CAN_Filter(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sFilterConfig, unsigned int fifo, unsigned int highId,
 		unsigned int lowId, unsigned int highMask, unsigned int lowMask, unsigned int scale);
 
 /* USER CODE END PFP */
@@ -156,16 +156,16 @@ static void CAN_Filter_Init(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sFilterC
 
 /* USER CODE BEGIN 0 */
 
-// destRegister is the ID (hex) of the register to send the data to, defined as a var above
+// destinationRegisterID is the ID (hex) of the register to send the data to, defined as a var above
 // data is just a value, not an array - this function formats it for you
-unsigned char sendCANmsg_MC(unsigned short destRegister, unsigned int data)
+unsigned char sendCAN_MotorController(unsigned short destinationRegisterID, unsigned int data)
 {
-  sendMsg_CAN_Header.StdId = MotorControllerAccepting;
-  sendMsg_CAN_Header.DLC = 3;
+  sendCAN_headerTemplate.StdId = MotorControllerCAN_acceptingID;
+  sendCAN_headerTemplate.DLC = 3;
 
-  unsigned char formattedData[3] = {destRegister, 0xFF | data, (0xFF00 | data) >> 8};
+  unsigned char formattedData[3] = {destinationRegisterID, 0xFF | data, (0xFF00 | data) >> 8};
 
-  if (HAL_CAN_AddTxMessage(&hcan1, &sendMsg_CAN_Header, formattedData, &pTxMailbox))
+  if (HAL_CAN_AddTxMessage(&hcan1, &sendCAN_headerTemplate, formattedData, &pTxMailbox))
   {
     return 0;
   }
@@ -174,21 +174,21 @@ unsigned char sendCANmsg_MC(unsigned short destRegister, unsigned int data)
 }
 
 // TODO: above in global vars, define vars for each of the channels (ex. unsigned char FAN1 = 0xB)
-// if highAmps == 0, PDU chooses 5A instead of 20A
-// if enable == 0, PDU turns the circuit off
-// channel should be one of the vars defined above
-unsigned char sendCANmsg_PDU(unsigned char enable, unsigned char highAmps, unsigned char channel)
+// if highAmpsBool == 0, PDU chooses 5A instead of 20A
+// if enableCircuitBool == 0, PDU turns the circuit off
+// channelHex should be one of the vars defined above
+unsigned char sendCANmsg_PDU(unsigned char enableCircuitBool, unsigned char highAmpsBool, unsigned char channelHex)
 {
-  sendMsg_CAN_Header.StdId = PowerDistUnit;
-  sendMsg_CAN_Header.DLC = 1;
+  sendCAN_headerTemplate.StdId = PowerDistUnitCAN_acceptingID;
+  sendCAN_headerTemplate.DLC = 1;
 
-  unsigned char formattedData[1] = {0b00000000};
+  unsigned char formattedData[1] = {0b00000000}; // HAL_CAN_AddTxMessage takes an array for data
 
-  if (enable) formattedData[0] = formattedData[0] | 0b00010000;
-  if (highAmps) formattedData[0] = formattedData[0] | 0b00100000;
-  formattedData[0] = formattedData[0] | (channel & 0b1111);
+  if (enableCircuitBool) formattedData[0] = formattedData[0] | 0b00010000;   // set enableCircuitBool bit
+  if (highAmpsBool) formattedData[0] = formattedData[0] | 0b00100000; // set highAmpsBool bit
+  formattedData[0] = formattedData[0] | (channelHex & 0b1111);       // set channel bits
 
-  if (HAL_CAN_AddTxMessage(&hcan1, &sendMsg_CAN_Header, formattedData, &pTxMailbox))
+  if (HAL_CAN_AddTxMessage(&hcan1, &sendCAN_headerTemplate, formattedData, &pTxMailbox))
   {
     return 0;
   }
@@ -197,16 +197,16 @@ unsigned char sendCANmsg_PDU(unsigned char enable, unsigned char highAmps, unsig
 }
 
 // TODO: implement dash function: define device IDs, figure out how to format data
-unsigned char sendCANmsg_DASH(unsigned char destination, unsigned char data)
+unsigned char sendCANmsg_DASH(unsigned char destinationID, unsigned char data)
 {
-  sendMsg_CAN_Header.StdId = destination;
-  sendMsg_CAN_Header.DLC = 1;
+  sendCAN_headerTemplate.StdId = destinationID;
+  sendCAN_headerTemplate.DLC = 1;
 
-  unsigned char formattedData[1] = {0b00000000};
+  unsigned char formattedData[1] = {0b00000000}; // HAL_CAN_AddTxMessage takes an array for data
 
-  // format data
+  // TODO: format data here
 
-  if (HAL_CAN_AddTxMessage(&hcan1, &sendMsg_CAN_Header, formattedData, &pTxMailbox))
+  if (HAL_CAN_AddTxMessage(&hcan1, &sendCAN_headerTemplate, formattedData, &pTxMailbox))
   {
     return 0;
   }
@@ -221,8 +221,8 @@ float max_cont_torque_available(unsigned short rpm)
 	float t = (-0.000003 * rpm * rpm) + (0.0192 * rpm) + (97.429);
 	if (t < 0)
 		return 0;
-	if (t > MAX_CONT_TORQUE)
-		return MAX_CONT_TORQUE;
+	if (t > MAX_CONTINUOUS_TORQUE)
+		return MAX_CONTINUOUS_TORQUE;
 	return t;
 }
 
@@ -239,7 +239,7 @@ float peak_torque_available(unsigned short rpm)
 
 // TODO: when is the system plausible?
 // Returns true if the car is not in or recovering from an implausible state
-unsigned char plausibility_check(unsigned char ap_percent, unsigned char bp_percent)
+unsigned char plausibility_check(unsigned char acceleratorPedal_percent, unsigned char brakePedal_percent)
 {
 	// check if the system is in an implausible state
   return true;
@@ -254,35 +254,35 @@ float pedal_map(float throttle, float max_trq)
   return pow((throttle - REGEN) / (max_trq - REGEN), GAMMA);
 }
 
-void driving_loop()
+void driving_tasks()
 {
   // Convert [sensor value] -> [% activation]
-  ap_percent = (unsigned char)((((double)(ap_raw[0] - AP1_RAW_MIN_ADC_VAL)) / AP1_RAW_ADC_RANGE) * 100);
-  bp_percent = (unsigned char)((((double)(bp_raw[0] - BP1_RAW_MIN_ADC_VAL)) / BP1_RAW_ADC_RANGE) * 100);
+  acceleratorPedal_percent = (unsigned char)((((double)(acceleratorPedal_ADC1output[0] - AcceleratorPedalSensor1_MIN_ADC_VALUE)) / AcceleratorPedalSensor1_ADC_RANGE) * 100);
+  brakePedal_percent = (unsigned char)((((double)(brakePedal_ADC2output[0] - BrakePedalSensor1_MIN_ADC_VALUE)) / BrakePedalSensor1_ADC_RANGE) * 100);
 
   // TODO: check accelerator values against eachother.
 
   // TODO: Send pedal position can messages to LCD
 
   // If in a plausible state, convert pedal sensor actuation to desired torque
-  if (plausibility_check(ap_percent, bp_percent))
+  if (plausibility_check(acceleratorPedal_percent, brakePedal_percent))
   {
     // TODO: get motor current RPM
     // TODO: calculate max torque value here, based on motor RPM
     max_torque_available = 100;
-    torque_setpoint = (pedal_map(ap_percent, max_torque_available) / 240) * 32767;
+    torque_setpoint = (pedal_map(acceleratorPedal_percent, max_torque_available) / 240) * 32767;
   }else{
     // if not in plausible state, set demanded torque to 0
     // ! may need to trigger shutdown circuit here
     torque_setpoint = 0;
   }
 
-  sendCANmsg_MC(MC_desiredTorque_register, torque_setpoint); // send torque CAN message
+  sendCAN_MotorController(MotorControllerCAN_desiredTorque_register, torque_setpoint); // send torque CAN message
 
   return;
 }
 
-void waiting_to_drive()
+void waiting_to_drive_tasks()
 {
 	// TODO: Figure out what signals we need to check for
 	// for now it will just be a button press
@@ -338,7 +338,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
 	//Initialize CAN filter - filter ID = TxHeader Id of other device, 32 bit scale. Enables and configs filter.
-	CAN_Filter_Init(&hcan1, &sFilterConfig, CAN_FILTER_FIFO0, MotorControllerAccepting, 0, 0, 0, CAN_FILTERSCALE_32BIT);
+	Initialize_CAN_Filter(&hcan1, &sFilterConfig, CAN_FILTER_FIFO0, MotorControllerCAN_acceptingID, 0, 0, 0, CAN_FILTERSCALE_32BIT);
 
 	//start CAN
 	HAL_CAN_Start(&hcan1);
@@ -348,11 +348,11 @@ int main(void)
 
   // start ADC1 and DMA channel, looking at both accelerator sensors
   HAL_ADC_Start(&hadc1);
-  HAL_ADC_Start_DMA(&hadc1, ap_raw_buff, 2);
+  HAL_ADC_Start_DMA(&hadc1, acceleratorPedal_ADC1output_buffer, 2);
 
   // start ADC2 and DMA channel, looking at both brake sensors
   HAL_ADC_Start(&hadc2);
-  HAL_ADC_Start_DMA(&hadc2, bp_raw_buff, 2);
+  HAL_ADC_Start_DMA(&hadc2, brakePedal_ADC2output_buffer, 2);
 
   // start ADC3 and DMA channel, looking at current, flow, and temp sensors
   HAL_ADC_Start(&hadc3);
@@ -363,15 +363,15 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-	while (1)
+	while(1)
 	{
 		if(READY_TO_DRIVE == true)
 		{
-		  driving_loop();
+		  driving_tasks();
 		}
 		else
 		{
-			waiting_to_drive();
+			waiting_to_drive_tasks();
 		}
 
     /* USER CODE END WHILE */
@@ -729,7 +729,7 @@ static void MX_GPIO_Init(void)
  * 	   scale         : Specifies the filter scale. This parameter can be a value of CAN_filter_scale
  * @retval None
  */
-static void CAN_Filter_Init(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sFilterConfig, unsigned int fifo, unsigned int highId,
+static void Initialize_CAN_Filter(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sFilterConfig, unsigned int fifo, unsigned int highId,
 		unsigned int lowId, unsigned int highMask, unsigned int lowMask, unsigned int scale)
 {
 	sFilterConfig->FilterFIFOAssignment = fifo;
@@ -746,23 +746,23 @@ static void CAN_Filter_Init(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sFilterC
 // Called when ADC1 DMA buffer is completely filled
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc1)
 {
-  ap_raw[0] = ap_raw_buff[0];
-  ap_raw[1] = ap_raw_buff[1];
+  acceleratorPedal_ADC1output[0] = acceleratorPedal_ADC1output_buffer[0];
+  acceleratorPedal_ADC1output[1] = acceleratorPedal_ADC1output_buffer[1];
 }
 
 // Called when ADC2 DMA buffer is completely filled
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc2)
 {
-  bp_raw[0] = bp_raw_buff[0];
-  bp_raw[1] = bp_raw_buff[1];
+  brakePedal_ADC2output[0] = brakePedal_ADC2output_buffer[0];
+  brakePedal_ADC2output[1] = brakePedal_ADC2output_buffer[1];
 }
 
 // Called when ADC3 DMA buffer is completely filled
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc3)
 {
-  temp_sensor_value = cft_raw_buff[0];
-  flow_sensor_value = cft_raw_buff[1];
-  current_sensor_value = cft_raw_buff[2];
+  temp_sensor_DegreesC = cft_raw_buff[0];
+  flow_sensor_LitresPerMin = cft_raw_buff[1];
+  current_sensor_Amperes = cft_raw_buff[2];
 }
 
 /* USER CODE END 4 */
