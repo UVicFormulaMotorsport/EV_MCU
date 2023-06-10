@@ -48,28 +48,20 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
-ADC_HandleTypeDef hadc2;
-ADC_HandleTypeDef hadc3;
 DMA_HandleTypeDef hdma_adc1;
-DMA_HandleTypeDef hdma_adc2;
-DMA_HandleTypeDef hdma_adc3;
 
 CAN_HandleTypeDef hcan1;
 
 /* USER CODE BEGIN PV */
 
 // sensor value vars
-unsigned short acceleratorPedal_ADC1output_buffer[2] = {0, 0}; // raw accelerator pedal ADC1 values buffer for DMA
-unsigned short acceleratorPedal_ADC1output[2] = {0, 0};        // raw accelerator pedal ADC1 values
-unsigned char  acceleratorPedal_percent = 0;                   // accelerator pedal value as a percent
+volatile unsigned int ADC1_outputBuffer[7] = {0, 0, 0, 0, 0, 0, 0}; // raw ADC1 values buffer for DMA
+volatile unsigned int acceleratorPedal_ADCoutput[2] = {0, 0};       // raw accelerator pedal ADC1 values
+volatile unsigned int brakePedal_ADCoutput[2] = {0, 0};             // raw brake pedal ADC1 values
+volatile unsigned int tfc_ADCoutput[3] = {0, 0, 0};                 // raw TFC ADC1 values
 
-unsigned short brakePedal_ADC2output_buffer[2] = {0, 0};       // raw brake pedal ADC2 values buffer for DMA
-unsigned short brakePedal_ADC2output[2] = {0, 0};              // raw brake pedal ADC2 values
-unsigned char  brakePedal_percent = 0;                         // brake pedal value as a percent
-
-// cft = {current, flow, temp}
-unsigned short cft_raw_buff[3] = {0, 0, 0};  // raw ADC3 values buffer for DMA
-unsigned short cft_raw[3] = {0, 0, 0};       // raw ADC3 values
+unsigned char  brakePedal_percent = 0;       // brake pedal value as a percent
+unsigned char  acceleratorPedal_percent = 0; // accelerator pedal value as a percent
 unsigned short temp_sensor_DegreesC = 0;     // degrees C
 unsigned short flow_sensor_LitresPerMin = 0; // L/min
 unsigned short current_sensor_Amperes = 0;   // amps
@@ -86,24 +78,13 @@ unsigned short PowerDistUnitCAN_acceptingID = 0x710;
 unsigned short MotorControllerCAN_desiredTorque_register = 0x90;
 unsigned short MotorControllerCAN_actualRPM_register = 0x30;
 
+volatile unsigned char conversion_done = 0;
+
 // CAN header templates
-CAN_TxHeaderTypeDef sendCAN_headerTemplate;
-// sendCAN_headerTemplate.StdId = ; // device ID (hex)
-// sendCAN_headerTemplate.ExtId = ; // not using
-sendCAN_headerTemplate.IDE = CAN_ID_STD;
-sendCAN_headerTemplate.RTR = CAN_RTR_DATA;
-sendCAN_headerTemplate.DLC = 3;
-sendCAN_headerTemplate.TransmitGlobalTime = DISABLE;
+CAN_TxHeaderTypeDef sendCANheaderTemplate = {0x201, 0, CAN_ID_STD, CAN_RTR_DATA, 3, 0};
 
 // TODO: figure out how to request data from the MC with this header
-CAN_RxHeaderTypeDef requestCAN_headerTemplate;
-//requestCAN_headerTemplate.StdId = ; // device ID (hex)
-//requestCAN_headerTemplate.ExtId = ; // not using
-requestCAN_headerTemplate.IDE = CAN_ID_STD;
-requestCAN_headerTemplate.RTR = CAN_RTR_DATA;
-requestCAN_headerTemplate.DLC = 3;
-//requestCAN_headerTemplate.Timestamp = ; // what do these two need to be?
-//requestCAN_headerTemplate.FilterMatchIndex = ;
+CAN_RxHeaderTypeDef requestCANheaderTemplate = {0x181, 0, CAN_ID_STD, CAN_RTR_DATA, 3, 0, 0};
 
 unsigned long pTxMailbox = 0; // CAN mailbox var
 
@@ -141,9 +122,6 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_CAN1_Init(void);
-static void MX_ADC2_Init(void);
-static void MX_ADC3_Init(void);
-
 /* USER CODE BEGIN PFP */
 
 // TODO: does this need to be a function, or can the steps just be done in main?
@@ -153,19 +131,18 @@ static void Initialize_CAN_Filter(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sF
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
-
 /* USER CODE BEGIN 0 */
 
 // destinationRegisterID is the ID (hex) of the register to send the data to, defined as a var above
 // data is just a value, not an array - this function formats it for you
 unsigned char sendCAN_MotorController(unsigned short destinationRegisterID, unsigned int data)
 {
-  sendCAN_headerTemplate.StdId = MotorControllerCAN_acceptingID;
-  sendCAN_headerTemplate.DLC = 3;
+  sendCANheaderTemplate.StdId = MotorControllerCAN_acceptingID;
+  sendCANheaderTemplate.DLC = 3;
 
-  unsigned char formattedData[3] = {destinationRegisterID, 0xFF | data, (0xFF00 | data) >> 8};
+  unsigned char formattedData[3] = {destinationRegisterID, 0xFF & data, (0xFF00 & data) >> 8};
 
-  if (HAL_CAN_AddTxMessage(&hcan1, &sendCAN_headerTemplate, formattedData, &pTxMailbox))
+  if (HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox))
   {
     return 0;
   }
@@ -179,8 +156,8 @@ unsigned char sendCAN_MotorController(unsigned short destinationRegisterID, unsi
 // channelHex should be one of the vars defined above
 unsigned char sendCANmsg_PDU(unsigned char enableCircuitBool, unsigned char highAmpsBool, unsigned char channelHex)
 {
-  sendCAN_headerTemplate.StdId = PowerDistUnitCAN_acceptingID;
-  sendCAN_headerTemplate.DLC = 1;
+  sendCANheaderTemplate.StdId = PowerDistUnitCAN_acceptingID;
+  sendCANheaderTemplate.DLC = 1;
 
   unsigned char formattedData[1] = {0b00000000}; // HAL_CAN_AddTxMessage takes an array for data
 
@@ -188,7 +165,7 @@ unsigned char sendCANmsg_PDU(unsigned char enableCircuitBool, unsigned char high
   if (highAmpsBool) formattedData[0] = formattedData[0] | 0b00100000; // set highAmpsBool bit
   formattedData[0] = formattedData[0] | (channelHex & 0b1111);       // set channel bits
 
-  if (HAL_CAN_AddTxMessage(&hcan1, &sendCAN_headerTemplate, formattedData, &pTxMailbox))
+  if (HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox))
   {
     return 0;
   }
@@ -199,14 +176,14 @@ unsigned char sendCANmsg_PDU(unsigned char enableCircuitBool, unsigned char high
 // TODO: implement dash function: define device IDs, figure out how to format data
 unsigned char sendCANmsg_DASH(unsigned char destinationID, unsigned char data)
 {
-  sendCAN_headerTemplate.StdId = destinationID;
-  sendCAN_headerTemplate.DLC = 1;
+  sendCANheaderTemplate.StdId = destinationID;
+  sendCANheaderTemplate.DLC = 1;
 
   unsigned char formattedData[1] = {0b00000000}; // HAL_CAN_AddTxMessage takes an array for data
 
   // TODO: format data here
 
-  if (HAL_CAN_AddTxMessage(&hcan1, &sendCAN_headerTemplate, formattedData, &pTxMailbox))
+  if (HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox))
   {
     return 0;
   }
@@ -256,9 +233,16 @@ float pedal_map(float throttle, float max_trq)
 
 void driving_tasks()
 {
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC1_outputBuffer, 7);
+	while(!conversion_done)
+	{
+		// wait
+	}
+	conversion_done = 0;
+
   // Convert [sensor value] -> [% activation]
-  acceleratorPedal_percent = (unsigned char)((((double)(acceleratorPedal_ADC1output[0] - AcceleratorPedalSensor1_MIN_ADC_VALUE)) / AcceleratorPedalSensor1_ADC_RANGE) * 100);
-  brakePedal_percent = (unsigned char)((((double)(brakePedal_ADC2output[0] - BrakePedalSensor1_MIN_ADC_VALUE)) / BrakePedalSensor1_ADC_RANGE) * 100);
+  acceleratorPedal_percent = (unsigned char)((((double)(acceleratorPedal_ADCoutput[0] - AcceleratorPedalSensor1_MIN_ADC_VALUE)) / AcceleratorPedalSensor1_ADC_RANGE) * 100);
+  brakePedal_percent = (unsigned char)((((double)(brakePedal_ADCoutput[0] - BrakePedalSensor1_MIN_ADC_VALUE)) / BrakePedalSensor1_ADC_RANGE) * 100);
 
   // TODO: check accelerator values against eachother.
 
@@ -277,7 +261,25 @@ void driving_tasks()
     torque_setpoint = 0;
   }
 
-  sendCAN_MotorController(MotorControllerCAN_desiredTorque_register, torque_setpoint); // send torque CAN message
+  // TEST CAN MESSAGES
+
+  // for PCAN
+  //sendCAN_MotorController(0x069, acceleratorPedal_percent);
+  //sendCAN_MotorController(0x096, brakePedal_percent);
+
+  // for motor rpm
+  //sendCAN_MotorController(0x31, (acceleratorPedal_percent*3277)/100); // send motor desired RPM to MC
+  //sendCAN_MotorController(0x31, 0xF0F0);
+
+  unsigned char formattedData[3] = {(0xF00 & acceleratorPedal_ADCoutput[0]) >> 8, (0x0F0 & acceleratorPedal_ADCoutput[0]) >> 4, 0x00F & acceleratorPedal_ADCoutput[0]};
+  sendCANheaderTemplate.StdId = MotorControllerCAN_acceptingID;
+  sendCANheaderTemplate.DLC = 3;
+  HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox);
+
+  // END TEST CAN MESSAGES
+
+  // ACTUAL CAN MESSAGE
+  //sendCAN_MotorController(MotorControllerCAN_desiredTorque_register, torque_setpoint); // send torque CAN message
 
   return;
 }
@@ -287,14 +289,23 @@ void waiting_to_drive_tasks()
 	// TODO: Figure out what signals we need to check for
 	// for now it will just be a button press
 
+	/*
 	// Check if the button is pressed
 	if((GPIOA->IDR & GPIO_PIN_0) == true)
 	{
 		// TODO: pdu message to play sound
 
-    // TODO: pdu message to close hw enable switch on controller
+		// TODO: pdu message to close hw enable switch on controller
 
 		READY_TO_DRIVE = true;
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET); //orng
+	}
+	*/
+
+	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_RESET) //PB0, 35, has pull-up
+	{
+		READY_TO_DRIVE = true;
+		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET); //grn
 	}
 
 	return;
@@ -333,9 +344,10 @@ int main(void)
   MX_DMA_Init();
   MX_ADC1_Init();
   MX_CAN1_Init();
-  MX_ADC2_Init();
-  MX_ADC3_Init();
   /* USER CODE BEGIN 2 */
+
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET); //grn
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET); //orng
 
 	//Initialize CAN filter - filter ID = TxHeader Id of other device, 32 bit scale. Enables and configs filter.
 	Initialize_CAN_Filter(&hcan1, &sFilterConfig, CAN_FILTER_FIFO0, MotorControllerCAN_acceptingID, 0, 0, 0, CAN_FILTERSCALE_32BIT);
@@ -346,17 +358,9 @@ int main(void)
 	//interrupt on message pending
 	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
-  // start ADC1 and DMA channel, looking at both accelerator sensors
+  // start ADC1 and DMA channel
+  //HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC1_outputBuffer, 7);
   HAL_ADC_Start(&hadc1);
-  HAL_ADC_Start_DMA(&hadc1, acceleratorPedal_ADC1output_buffer, 2);
-
-  // start ADC2 and DMA channel, looking at both brake sensors
-  HAL_ADC_Start(&hadc2);
-  HAL_ADC_Start_DMA(&hadc2, brakePedal_ADC2output_buffer, 2);
-
-  // start ADC3 and DMA channel, looking at current, flow, and temp sensors
-  HAL_ADC_Start(&hadc3);
-  HAL_ADC_Start_DMA(&hadc3, cft_raw_buff, 3);
 
   /* USER CODE END 2 */
 
@@ -440,7 +444,6 @@ static void MX_ADC1_Init(void)
 
   /* USER CODE END ADC1_Init 0 */
 
-  ADC_MultiModeTypeDef multimode = {0};
   ADC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN ADC1_Init 1 */
@@ -458,20 +461,10 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.NbrOfConversion = 7;
   hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure the ADC multi-mode
-  */
-  multimode.Mode = ADC_TRIPLEMODE_REGSIMULT;
-  multimode.DMAAccessMode = ADC_DMAACCESSMODE_1;
-  multimode.TwoSamplingDelay = ADC_TWOSAMPLINGDELAY_5CYCLES;
-  if (HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode) != HAL_OK)
   {
     Error_Handler();
   }
@@ -485,109 +478,57 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Rank = 2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Rank = 3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Rank = 4;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Rank = 5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Rank = 6;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Rank = 7;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
-
-}
-
-/**
-  * @brief ADC2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_ADC2_Init(void)
-{
-
-  /* USER CODE BEGIN ADC2_Init 0 */
-
-  /* USER CODE END ADC2_Init 0 */
-
-  ADC_ChannelConfTypeDef sConfig = {0};
-
-  /* USER CODE BEGIN ADC2_Init 1 */
-
-  /* USER CODE END ADC2_Init 1 */
-
-  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
-  hadc2.Instance = ADC2;
-  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
-  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc2.Init.ScanConvMode = ENABLE;
-  hadc2.Init.ContinuousConvMode = DISABLE;
-  hadc2.Init.DiscontinuousConvMode = DISABLE;
-  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc2.Init.NbrOfConversion = 1;
-  hadc2.Init.DMAContinuousRequests = ENABLE;
-  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_3;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN ADC2_Init 2 */
-
-  /* USER CODE END ADC2_Init 2 */
-
-}
-
-/**
-  * @brief ADC3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_ADC3_Init(void)
-{
-
-  /* USER CODE BEGIN ADC3_Init 0 */
-
-  /* USER CODE END ADC3_Init 0 */
-
-  ADC_ChannelConfTypeDef sConfig = {0};
-
-  /* USER CODE BEGIN ADC3_Init 1 */
-
-  /* USER CODE END ADC3_Init 1 */
-
-  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
-  hadc3.Instance = ADC3;
-  hadc3.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
-  hadc3.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc3.Init.ScanConvMode = ENABLE;
-  hadc3.Init.ContinuousConvMode = DISABLE;
-  hadc3.Init.DiscontinuousConvMode = DISABLE;
-  hadc3.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc3.Init.NbrOfConversion = 1;
-  hadc3.Init.DMAContinuousRequests = ENABLE;
-  hadc3.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_10;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_56CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN ADC3_Init 2 */
-
-  /* USER CODE END ADC3_Init 2 */
 
 }
 
@@ -641,12 +582,6 @@ static void MX_DMA_Init(void)
   /* DMA2_Stream0_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
-  /* DMA2_Stream1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream1_IRQn);
-  /* DMA2_Stream2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
 
 }
 
@@ -662,7 +597,6 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
@@ -677,12 +611,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = GPIO_PIN_0;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PA5 */
-  GPIO_InitStruct.Pin = GPIO_PIN_5;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB0 */
@@ -746,23 +674,14 @@ static void Initialize_CAN_Filter(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sF
 // Called when ADC1 DMA buffer is completely filled
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc1)
 {
-  acceleratorPedal_ADC1output[0] = acceleratorPedal_ADC1output_buffer[0];
-  acceleratorPedal_ADC1output[1] = acceleratorPedal_ADC1output_buffer[1];
-}
-
-// Called when ADC2 DMA buffer is completely filled
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc2)
-{
-  brakePedal_ADC2output[0] = brakePedal_ADC2output_buffer[0];
-  brakePedal_ADC2output[1] = brakePedal_ADC2output_buffer[1];
-}
-
-// Called when ADC3 DMA buffer is completely filled
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc3)
-{
-  temp_sensor_DegreesC = cft_raw_buff[0];
-  flow_sensor_LitresPerMin = cft_raw_buff[1];
-  current_sensor_Amperes = cft_raw_buff[2];
+  acceleratorPedal_ADCoutput[0] = ADC1_outputBuffer[0];
+  acceleratorPedal_ADCoutput[1] = ADC1_outputBuffer[1];
+  brakePedal_ADCoutput[0] = ADC1_outputBuffer[2];
+  brakePedal_ADCoutput[1] = ADC1_outputBuffer[3];
+  tfc_ADCoutput[0] = ADC1_outputBuffer[4];
+  tfc_ADCoutput[1] = ADC1_outputBuffer[5];
+  tfc_ADCoutput[2] = ADC1_outputBuffer[6];
+  conversion_done = 1;
 }
 
 /* USER CODE END 4 */
@@ -787,7 +706,7 @@ void Error_Handler(void)
   * @param  line: assert_param error line source number
   * @retval None
   */
-void assert_failed(unsigned char *file, unsigned int line)
+void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
