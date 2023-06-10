@@ -96,6 +96,8 @@ sendCAN_headerTemplate.DLC = 3;
 sendCAN_headerTemplate.TransmitGlobalTime = DISABLE;
 
 // TODO: figure out how to request data from the MC with this header
+// ANSWER: You don't. The CAN_RxHeaderTypeDef is for storing information about the received data, and is written to when
+// receiving a CAN message.
 CAN_RxHeaderTypeDef requestCAN_headerTemplate;
 //requestCAN_headerTemplate.StdId = ; // device ID (hex)
 //requestCAN_headerTemplate.ExtId = ; // not using

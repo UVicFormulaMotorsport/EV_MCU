@@ -1,0 +1,8 @@
+C:\Documents and Settings\ralford\My Documents\Visual Studio 2005\Projects\WindowsApplication14\WindowsApplication14\bin\Debug\WindowsApplication14.exe
+C:\Documents and Settings\ralford\My Documents\Visual Studio 2005\Projects\WindowsApplication14\WindowsApplication14\bin\Debug\WindowsApplication14.pdb
+C:\Documents and Settings\ralford\My Documents\Visual Studio 2005\Projects\WindowsApplication14\WindowsApplication14\obj\Debug\ResolveAssemblyReference.cache
+C:\Documents and Settings\ralford\My Documents\Visual Studio 2005\Projects\WindowsApplication14\WindowsApplication14\obj\Debug\WindowsApplication14.Form1.resources
+C:\Documents and Settings\ralford\My Documents\Visual Studio 2005\Projects\WindowsApplication14\WindowsApplication14\obj\Debug\WindowsApplication14.Properties.Resources.resources
+C:\Documents and Settings\ralford\My Documents\Visual Studio 2005\Projects\WindowsApplication14\WindowsApplication14\obj\Debug\WindowsApplication14.csproj.GenerateResource.Cache
+C:\Documents and Settings\ralford\My Documents\Visual Studio 2005\Projects\WindowsApplication14\WindowsApplication14\obj\Debug\WindowsApplication14.exe
+C:\Documents and Settings\ralford\My Documents\Visual Studio 2005\Projects\WindowsApplication14\WindowsApplication14\obj\Debug\WindowsApplication14.pdb

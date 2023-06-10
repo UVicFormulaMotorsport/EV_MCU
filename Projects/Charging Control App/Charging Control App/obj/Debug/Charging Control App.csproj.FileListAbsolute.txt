@@ -1,8 +1,0 @@
-C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging Control App\bin\Debug\Charging Control App.exe.config
-C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging Control App\bin\Debug\Charging Control App.exe
-C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging Control App\bin\Debug\Charging Control App.pdb
-C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging Control App\obj\Debug\Charging Control App.csproj.AssemblyReference.cache
-C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging Control App\obj\Debug\Charging Control App.csproj.SuggestedBindingRedirects.cache
-C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging Control App\obj\Debug\Charging Control App.csproj.CoreCompileInputs.cache
-C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging Control App\obj\Debug\Charging Control App.exe
-C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging Control App\obj\Debug\Charging Control App.pdb
