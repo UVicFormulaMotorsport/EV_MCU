@@ -74,7 +74,19 @@ unsigned short current_sensor_Amperes = 0;   // amps
 unsigned char  max_torque_available = 0; // stores current max torque available from the motor based on motor rpm
 unsigned short torque_setpoint = 0;      // torque setpoint to send to motor
 
-unsigned char
+unsigned char BMS_discreete_inputs_1 = 0; //bitfield for high level BMS information
+//int BMS_current_measured = 0; //Not currently being used, we have our own current sensor
+char min_cell_temp = 0;
+char max_cell_temp = 0;
+unsigned char state_of_charge = 0;
+unsigned short battery_voltage = 0; //0.1V per byte, I.E. receiving 0x12C0 = 4800 -> divite by 10 = 480V
+
+unsigned long BMS_internal_state = 0;
+unsigned long BMS_error_register_1 = 0;
+
+unsigned long BMS_error_register_2 = 0;
+unsigned short BMS_discrete_inputs_2 = 0;
+
 
 // CAN Device IDs
 unsigned short MotorControllerCAN_acceptingID = 0x201; // send to this device ID if you're giving the MC a value
@@ -107,7 +119,10 @@ volatile unsigned char conversion_done = 0;
 CAN_TxHeaderTypeDef sendCANheaderTemplate = {0x201, 0, CAN_ID_STD, CAN_RTR_DATA, 3, 0};
 
 // TODO: figure out how to request data from the MC with this header
-CAN_RxHeaderTypeDef requestCANheaderTemplate = {0x181, 0, CAN_ID_STD, CAN_RTR_DATA, 3, 0, 0};
+//CAN_RxHeaderTypeDef requestCANheaderTemplate = {0x181, 0, CAN_ID_STD, CAN_RTR_DATA, 3, 0, 0};
+
+CAN_RxHeaderTypeDef pRxHeader; //This is where the header for received can headers is stored, so it can be processed
+unsigned char rData[8]; // where the received CAN messages go
 
 unsigned long pTxMailbox = 0; // CAN mailbox var
 
@@ -188,7 +203,7 @@ unsigned char sendCANmsg_PDU(unsigned char enableCircuitBool, unsigned char high
   if (highAmpsBool) formattedData[0] = formattedData[0] | 0b00100000; // set highAmpsBool bit
   formattedData[0] = formattedData[0] | (channelHex & 0b1111);       // set channel bits
 
-  if (HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox))
+  if (HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox) == HAL_OK)
   {
     return 0;
   }
@@ -206,7 +221,7 @@ unsigned char sendCANmsg_DASH(unsigned char destinationID, unsigned char data)
 
   // TODO: format data here
 
-  if (HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox))
+  if (HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox) == HAL_OK)
   {
     return 0;
   }
