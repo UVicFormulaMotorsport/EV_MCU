@@ -74,7 +74,7 @@ unsigned short current_sensor_Amperes = 0;   // amps
 unsigned char  max_torque_available = 0; // stores current max torque available from the motor based on motor rpm
 unsigned short torque_setpoint = 0;      // torque setpoint to send to motor
 
-unsigned
+unsigned char
 
 // CAN Device IDs
 unsigned short MotorControllerCAN_acceptingID = 0x201; // send to this device ID if you're giving the MC a value
