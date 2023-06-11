@@ -74,10 +74,28 @@ unsigned short current_sensor_Amperes = 0;   // amps
 unsigned char  max_torque_available = 0; // stores current max torque available from the motor based on motor rpm
 unsigned short torque_setpoint = 0;      // torque setpoint to send to motor
 
+unsigned
+
 // CAN Device IDs
 unsigned short MotorControllerCAN_acceptingID = 0x201; // send to this device ID if you're giving the MC a value
 unsigned short MotorControllerCAN_sendingID = 0x181;   // you will recieve from this ID if you requested a MC value
 unsigned short PowerDistUnitCAN_acceptingID = 0x710;
+unsigned short BMS_sendingID_1 = 0x1A0;
+/* Data from BMS_sendingID_1 includes:
+ * some high level status in a bitfield
+ * Minimum and Maximum cell temperature
+ * Current current, current voltage, state of charge
+ */
+unsigned short BMS_sendingID_2 = 0x2A0;
+/* Data from BMS_sendingID_2 includes:
+ * BMS Internal state in a uint32 bitfield
+ * Errors register part 1 in a uint32 bitfield
+ */
+unsigned short BMS_sendingID_3 = 0x3A0;
+/* Data from BMS_sendingId_3 includes:
+ * Errors register part 2, a uint32 bitfield
+ * Additional discrete inputs
+ */
 
 // MC register IDs
 unsigned short MotorControllerCAN_desiredTorque_register = 0x90;
