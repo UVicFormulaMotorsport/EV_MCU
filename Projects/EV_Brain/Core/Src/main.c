@@ -171,6 +171,10 @@ static void Initialize_CAN_Filter(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sF
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+unsigned char receive_CAN(){ //takes inputs from things like the BMS and motor controller and stores incoming data in appropriate locations
+	unsigned long msg_id = (pRxHeader.IDE == CAN_ID_STD)? pRxHeader.StdId : pRxHeader.ExtId;
+}
+
 // destinationRegisterID is the ID (hex) of the register to send the data to, defined as a var above
 // data is just a value, not an array - this function formats it for you
 unsigned char sendCAN_MotorController(unsigned short destinationRegisterID, unsigned int data)
@@ -242,6 +246,7 @@ float max_cont_torque_available(unsigned short rpm)
 }
 
 // Returns the maximum peak torque available at the current rpm
+// How was this derived?
 float peak_torque_available(unsigned short rpm)
 {
 	float t = (-0.000001 * rpm * rpm) + (0.0029 * rpm) + (239.57);

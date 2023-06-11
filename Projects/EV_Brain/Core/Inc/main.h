@@ -54,7 +54,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+unsigned char receive_CAN();
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
