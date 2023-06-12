@@ -39,74 +39,7 @@ void can_send(int max_voltage, int max_current, int charging_status)
   mcp2515.sendMessage(&frame);
 }
 
-void can_receive()
-{
-  struct can_frame recieved_frame;
-  uint8_t irq = mcp2515.getInterrupts();
-  
-  if (irq & MCP2515::CANINTF_RX0IF)
-  {
-      if (mcp2515.readMessage(MCP2515::RXB0, &recieved_frame) != MCP2515::ERROR_OK)
-      {
-          Serial.println("Failed to read message from RXB0");
-          //while(1);
-      }
-  }
-  else if (irq & MCP2515::CANINTF_RX1IF)
-  {
-      if (mcp2515.readMessage(MCP2515::RXB1, &recieved_frame) != MCP2515::ERROR_OK)
-      {
-          Serial.println("Failed to read message from RXB1");
-          //while(1);
-      }
-  }
-  else
-  {
-    Serial.println("Interupt triggered but no message recieved");
-    //////while(1);
-  }
- 
-  int voltage = (recieved_frame.data[0] << 8) + recieved_frame.data[1];
-  int current = (recieved_frame.data[2] << 8) + recieved_frame.data[3];
-  int charger_status = recieved_frame.data[4];
-  
-  char msg[100];
-  sprintf(msg, "Output voltage: %d, Output current %d, Status: %d", voltage, current, charger_status);
-  Serial.println(msg);
 
-  if(charger_status != 0)
-  {
-    
-    
-    // Send a message to stop charging
-    can_send(0,0,STOP_CHARGING);
-    // Trigger shutdown circuit
-    digitalWrite(ENABLE_PIN, LOW);
-
-    // Output a message based on the errors
-    if((charger_status & 0x1) == 1)
-    {
-      Serial.println("Hardware Failure");
-    }
-    if((charger_status & 0x2) == 1)
-    {
-      Serial.println("Overtemperature Protection");
-    }
-    if((charger_status & 0x4) == 1)
-    {
-      Serial.println("Incorrect Input Voltage");
-    }
-    if((charger_status & 0x8) == 1)
-    {
-      Serial.println("Battery Reverse Polarity");
-    }
-    if((charger_status & 0x16) == 1)
-    {
-      Serial.println("Communication Time-out");
-    }
-    //while(1);
-  }
-}
 
 void can_int_handler()
 {
@@ -155,7 +88,7 @@ void setup()
   Serial.println("CAN setup complete");
 
   // Setup CAN message interrput handler
-  attachInterrupt(0, can_int_handler, FALLING);
+  //attachInterrupt(0, can_int_handler, FALLING);
 
   // Setting shutdown circtuit enable pin
   pinMode(ENABLE_PIN, OUTPUT);
@@ -170,13 +103,15 @@ void setup()
 
 void loop() {
   // Send a can message
-  if(interrupt == true)
-  {
-    Serial.println("---------------------------------------------------------");
-    can_receive();
-    interrupt = false;
-  }
-  can_send(MAX_VOLTAGE, MAX_CURRENT, START_CHARGING);
+//  if(interrupt == true)
+//  {
+//    Serial.println("---------------------------------------------------------");
+//    can_receive();
+//    interrupt = false;
+//  }
   
-  delay(1000);
+  can_send(MAX_VOLTAGE, MAX_CURRENT, START_CHARGING);
+  c++;
+  Serial.println(c);
+  delay(500);
 }

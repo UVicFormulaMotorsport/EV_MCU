@@ -74,7 +74,8 @@ unsigned char receive_CAN();
 #define SWCLK_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
-
+#define MAX_ACCUMULATOR_TEMP 60
+#define MIN_ACCUMULATOR_TEMO -5
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
