@@ -60,8 +60,14 @@ uint8_t uartRxData[8] = { 0 };
 
 /* External variables --------------------------------------------------------*/
 extern CAN_HandleTypeDef hcan;
+extern TIM_HandleTypeDef htim3;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
+extern pilot_struct pilot_info;
+
+
+//CAN VARS
+
 extern CAN_TxHeaderTypeDef chargerTxHeader; //CAN Tx Header
 extern CAN_RxHeaderTypeDef chargerRxHeader; //CAN Rx Header
 
@@ -72,6 +78,19 @@ extern uint16_t MAX_VOLTAGE;
 extern uint16_t MAX_CURRENT;
 extern uint16_t PILOT_FLAGS;
 extern uint8_t CHARGER_OUTPUT_STATUS;
+
+extern uint32_t CHARGER_RX; //ID from incoming charger messages
+
+//BMS variables :)
+extern int16_t current_current;
+extern int8_t minimum_cell_temp;
+extern int8_t max_cell_temp;
+extern uint8_t state_of_charge;
+extern uint8_t BMS_voltage;
+extern uint8_t BMS_discrete_outputs;
+extern uint32_t BMS_internal_state;
+extern uint32_t BMS_errors1;
+extern uint32_t BMS_errors2;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -232,16 +251,29 @@ void CAN1_RX1_IRQHandler(void)
 	}
 
 	if(msg_id == BMS_ID1){
+		BMS_discrete_outputs = canRxData[0];
+		current_current = ((int16_t)canRxData[1]<<8) + canRxData[2]; //swapping from little endian to big endian
+		minimum_cell_temp = canRxData[3];
+		max_cell_temp = canRxData[4];
+		state_of_charge = canRxData[5];
+		BMS_voltage = ((uint16_t)canRxData[6]<<8) + canRxData[7];
+
+
 
 	}else if(msg_id == BMS_ID2){
 
 	}else if(msg_id == BMS_ID3){
 
+	}else if(!(msg_id == CHARGER_RX)){
+		//something's messed up, handle error here:
+
+
+		return;
 	}
 
 
-	uint16_t voltage = (canRxData[0] << 8) + canRxData[1];
-	uint16_t current = (canRxData[2] << 8) + canRxData[3];
+	uint16_t voltage = ((uint16_t)canRxData[0] << 8) + canRxData[1];
+	current_current = ((uint16_t)canRxData[2] << 8) + canRxData[3];
 	uint16_t charger_status = canRxData[4];
 
 	// TODO: Once the display works, we should display these errors
@@ -250,7 +282,7 @@ void CAN1_RX1_IRQHandler(void)
 		error_flag = true;
 	}
 
-	if(current > MAX_CURRENT)
+	if(current_current > MAX_CURRENT)
 	{
 		error_flag = true;
 	}
@@ -268,6 +300,23 @@ void CAN1_RX1_IRQHandler(void)
 		update_charger(MAX_VOLTAGE, MAX_CURRENT, CHARGER_OUTPUT_STATUS);
 	}
   /* USER CODE END CAN1_RX1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM3 global interrupt.
+  */
+void TIM3_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM3_IRQn 0 */
+	// send periodic messages to charger nice
+	update_charger(MAX_VOLTAGE, MAX_CURRENT, CHARGER_OUTPUT_STATUS);
+  /* USER CODE END TIM3_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim3);
+  /* USER CODE BEGIN TIM3_IRQn 1 */
+  //update the charger with the necessary information :)
+
+
+  /* USER CODE END TIM3_IRQn 1 */
 }
 
 /**
@@ -292,7 +341,6 @@ void USART1_IRQHandler(void)
    *
    *
    *
-   *this is a cry for help
    *
    *
    *
@@ -306,7 +354,7 @@ void USART1_IRQHandler(void)
 
 	flagString = strtok((char *)uartRxData, delimiter);
 	currentString = strtok((char *)uartRxData, delimiter);
-	 __builtin_bswap32();
+	 //__builtin_bswap32();
 	char *ptr;
 	// Set GLOBAL values to the received values
 	MAX_VOLTAGE = (uint16_t)strtol(flagString, &ptr, 10);

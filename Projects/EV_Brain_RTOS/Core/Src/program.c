@@ -21,16 +21,18 @@ extern CAN_HandleTypeDef hcan1;
 extern UART_HandleTypeDef huart2;
 
 // CANBUS VARS
-#define COBID 0x20
+#define BMS_COBID 0x20
 CAN_RxHeaderTypeDef pRxHeader; //CAN Rx Header
 uint8_t tData[8] = { 0 }; // can message data
 uint32_t pTxMailbox; // Message mailbox
 CAN_FilterTypeDef sFilterConfig; //CAN filter configuration
 uint32_t MC_RX = 0x181; // CAN ID LIST
 uint32_t MC_TX = 0x101;
-uint32_t BMS_RX1 = 0x180 + COBID;
-uint32_t BMS_RX2 = 0x280 + COBID;
-uint32_t BMS_RX3 = 0x380 + COBID;
+const uint32_t BMS_TX = 0x000; //figure it out lol
+const uint32_t BMS_HEARTBEAT = 0x080 + BMS_COBID;
+const uint32_t BMS_RX1 = 0x180 + BMS_COBID;
+const uint32_t BMS_RX2 = 0x280 + BMS_COBID;
+const uint32_t BMS_RX3 = 0x380 + BMS_COBID;
 
 // STATE VARS
 uint8_t IMPLAUSIBLE_STATE;
@@ -102,6 +104,7 @@ HAL_StatusTypeDef CANsend(CAN_HandleTypeDef *hcan, CAN_TxHeaderTypeDef *pTxHeade
 void program()
 {
 	//Initialize CAN filter - filter ID = TxHeader Id of other device, 32 bit scale. Enables and configs filter.
+	//TODO: FIX THE FILTER SO THAT IT CAN RECEIVE MSG FROM THINGS THAT AREN't THE MOTOR CONTROLLER!
 	CAN_Filter_Init(&hcan1, &sFilterConfig, CAN_FILTER_FIFO0, MC_RX, 0, 0, 0,
 	CAN_FILTERSCALE_32BIT);
 

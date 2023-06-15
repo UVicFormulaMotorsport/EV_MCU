@@ -54,7 +54,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+unsigned char receive_CAN();
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -74,7 +74,8 @@ void Error_Handler(void);
 #define SWCLK_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
-
+#define MAX_ACCUMULATOR_TEMP 60
+#define MIN_ACCUMULATOR_TEMO -5
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

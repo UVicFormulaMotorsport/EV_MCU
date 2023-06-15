@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -34,7 +35,7 @@
 #define false 0
 #define true !(false)
 
-#define RX_BUFFER_SIZE 4;
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -49,33 +50,73 @@ CAN_HandleTypeDef hcan;
 
 I2C_HandleTypeDef hi2c1;
 
+TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim3;
+
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
+//system variables
+#define sys_vars
+enum system_state_t{no_connection, sys_normal, sys_error};
+enum system_state_t system_state = no_connection;
+charge_profile charge_profiles[16] = {
+		{12,570}, //full charge
+		{12,480}, //storage voltage
+		{6, 570}, //gentle full
+		{12, 480},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+		{0, 0},
+};
+
+
+uint8_t current_preset;//the current charging preset
+
+
+
+//pilot control variables
+pilot_struct pilot_info = {0, 0, 0, 0};
+
+//charger variables
+#define CHRGR_VARS
 uint16_t MAX_VOLTAGE = 0;
 uint16_t MAX_CURRENT = 0;
-int16_t Current_current = 0;
-uint16_t PILOT_FLAGS = 0;
+//STATUS FROM BMS
+#define BMS_VARS
+int16_t current_current = 0;
+
 uint8_t CHARGER_OUTPUT_STATUS = 0;
 int8_t minimum_cell_temp = 0;
 int8_t max_cell_temp = 0;
 uint8_t state_of_charge = 0;
-uint8_t BMS_voltage = 0;
+uint16_t BMS_voltage = 0;
+uint8_t BMS_discrete_outputs = 0;
 uint32_t BMS_internal_state = 0;
 uint32_t BMS_errors1 = 0;
 uint32_t BMS_errors2 = 0;
 
 // CANBUS VARS
+#define CANBUS_VARS
 CAN_TxHeaderTypeDef chargerTxHeader; //CAN Tx Header
 CAN_RxHeaderTypeDef chargerRxHeader; //CAN Rx Header
 uint8_t tData[8] = { 0 }; // can message data
 uint32_t pTxMailbox; // Message mailbox
 CAN_FilterTypeDef sFilterConfig; //CAN filter configuration
-uint32_t CHARGER_RX = 0x18FF50E5;
+uint32_t CHARGER_RX = 0x18FF50E5;//msg sent BY charger
 uint32_t CHARGER_TX = 0x1806E5F4;
-const uint16_t BMS_ID1 = 0x0000;//BMS uses standard length identifiers, therefore uint_16 is used
-const uint16_t BMS_ID2 = 0x0000;
-const uint16_t BMS_ID3 = 0x0000;
+const uint16_t BMS_ID1 = 0x180 + BMS_COBID;//BMS uses standard length identifiers, therefore uint_16 is used
+const uint16_t BMS_ID2 = 0x280 + BMS_COBID;
+const uint16_t BMS_ID3 = 0x380 + BMS_COBID;
 //what the fuck is happening here?
 
 /* USER CODE END PV */
@@ -87,12 +128,9 @@ static void MX_CAN_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM1_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
-void init_LCD();
-void I2C_out(unsigned char);
-void I2C_Start(void);
-void I2C_Stop(void);
-void Show(unsigned char);
 
 void CAN_TxHeader_Init(CAN_TxHeaderTypeDef *pTxHeader, uint32_t dlc, uint32_t ide, uint32_t rtr, uint32_t stdId)
 {
@@ -142,6 +180,11 @@ void update_charger(uint16_t max_voltage, uint16_t max_current, uint8_t charging
 	HAL_CAN_AddTxMessage(&hcan, &chargerTxHeader, tData, &pTxMailbox);
 	return;
 }
+
+void panic(){
+//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -172,7 +215,11 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK)
+    {
+      /* Starting Error */
+      Error_Handler();
+    }
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -181,12 +228,18 @@ int main(void)
   MX_I2C1_Init();
   MX_ADC1_Init();
   MX_USART1_UART_Init();
+  MX_TIM1_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   // Turn on led
   GPIOB -> ODR |= GPIO_PIN_5;
+
   CAN_TxHeader_Init(&chargerTxHeader, 8, CAN_ID_EXT, CAN_RTR_DATA, CHARGER_TX);
   CAN_RxHeader_Init(&chargerRxHeader, 8, CAN_ID_EXT, CAN_RTR_DATA, CHARGER_RX);
-  CAN_Filter_Init(&hcan, &sFilterConfig, CAN_FILTER_FIFO0, CHARGER_RX, 0, CHARGER_RX, 0, CAN_FILTERSCALE_32BIT);
+  CAN_Filter_Init(&hcan, &sFilterConfig, CAN_FILTER_FIFO0, CHARGER_RX, 0, CHARGER_RX, 0, CAN_FILTERSCALE_32BIT); //init CAN
+
+  //initialize LCD and start display loop
+  init_LCD();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -194,7 +247,27 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+	  //check for inputs from user
 
+	  //switch case of doom:
+	  switch(system_state){
+	  case no_connection: //charging station is not plugged in to anything
+
+		  break;
+
+	  case sys_normal: //charging normal
+
+	  	  break;
+
+	  case sys_error: //an error has occurred
+		  panic(); //shit bro
+		  break;
+
+	  default: //yeah idk, how did we even get here?
+
+		  break;
+
+	  }
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -364,6 +437,119 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 65535;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_OC_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_TIMING;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_OC_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OC_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 3199;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 10000;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -414,7 +600,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(RST_GPIO_Port, RST_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LCD_RST_GPIO_Port, LCD_RST_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LCD_RST_Pin|CHRG_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(SHTDN_Trigger_GPIO_Port, SHTDN_Trigger_Pin, GPIO_PIN_RESET);
@@ -449,6 +635,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(SHTDN_Trigger_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : CHRG_EN_Pin */
+  GPIO_InitStruct.Pin = CHRG_EN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(CHRG_EN_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : LED__Pin */
   GPIO_InitStruct.Pin = LED__Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -473,6 +666,7 @@ void Error_Handler(void)
   __disable_irq();
   while (1)
   {
+	  //uh ohh stinky
   }
   /* USER CODE END Error_Handler_Debug */
 }

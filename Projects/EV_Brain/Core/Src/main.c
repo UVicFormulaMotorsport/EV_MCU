@@ -48,7 +48,11 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc2;
+ADC_HandleTypeDef hadc3;
 DMA_HandleTypeDef hdma_adc1;
+DMA_HandleTypeDef hdma_adc2;
+DMA_HandleTypeDef hdma_adc3;
 
 CAN_HandleTypeDef hcan1;
 
@@ -59,8 +63,9 @@ volatile unsigned int ADC1_outputBuffer[7] = {0, 0, 0, 0, 0, 0, 0}; // raw ADC1 
 volatile unsigned int acceleratorPedal_ADCoutput[2] = {0, 0};       // raw accelerator pedal ADC1 values
 volatile unsigned int brakePedal_ADCoutput[2] = {0, 0};             // raw brake pedal ADC1 values
 volatile unsigned int tfc_ADCoutput[3] = {0, 0, 0};                 // raw TFC ADC1 values
+unsigned char  brakePedal_percent = 0;                         // brake pedal value as a percent
 
-unsigned char  brakePedal_percent = 0;       // brake pedal value as a percent
+//unsigned char  brakePedal_percent = 0;       // brake pedal value as a percent
 unsigned char  acceleratorPedal_percent = 0; // accelerator pedal value as a percent
 unsigned short temp_sensor_DegreesC = 0;     // degrees C
 unsigned short flow_sensor_LitresPerMin = 0; // L/min
@@ -69,10 +74,40 @@ unsigned short current_sensor_Amperes = 0;   // amps
 unsigned char  max_torque_available = 0; // stores current max torque available from the motor based on motor rpm
 unsigned short torque_setpoint = 0;      // torque setpoint to send to motor
 
+unsigned char BMS_discrete_inputs_1 = 0; //bitfield for high level BMS information
+//int BMS_current_measured = 0; //Not currently being used, we have our own current sensor
+signed char min_cell_temp = 0; //temp measurements from BMS
+signed char max_cell_temp = 0; //temp measurements from BMS
+unsigned char state_of_charge = 0; //% charge, as determined by the BMS
+unsigned short battery_voltage = 0; //0.1V per byte, I.E. receiving 0x12C0 = 4800 -> divite by 10 = 480V
+
+unsigned long BMS_internal_state = 0;
+unsigned long BMS_error_register_1 = 0; //These 2 error_registers are a bitfield containing information about any errors the BMS experiences
+
+unsigned long BMS_error_register_2 = 0;
+unsigned short BMS_discrete_inputs_2 = 0;
+
+
 // CAN Device IDs
 unsigned short MotorControllerCAN_acceptingID = 0x201; // send to this device ID if you're giving the MC a value
 unsigned short MotorControllerCAN_sendingID = 0x181;   // you will recieve from this ID if you requested a MC value
 unsigned short PowerDistUnitCAN_acceptingID = 0x710;
+unsigned short BMS_sendingID_1 = 0x1A0;
+/* Data from BMS_sendingID_1 includes:
+ * some high level status in a bitfield
+ * Minimum and Maximum cell temperature
+ * Current current, current voltage, state of charge
+ */
+unsigned short BMS_sendingID_2 = 0x2A0;
+/* Data from BMS_sendingID_2 includes:
+ * BMS Internal state in a uint32 bitfield
+ * Errors register part 1 in a uint32 bitfield
+ */
+unsigned short BMS_sendingID_3 = 0x3A0;
+/* Data from BMS_sendingId_3 includes:
+ * Errors register part 2, a uint32 bitfield
+ * Additional discrete inputs
+ */
 
 // MC register IDs
 unsigned short MotorControllerCAN_desiredTorque_register = 0x90;
@@ -84,7 +119,10 @@ volatile unsigned char conversion_done = 0;
 CAN_TxHeaderTypeDef sendCANheaderTemplate = {0x201, 0, CAN_ID_STD, CAN_RTR_DATA, 3, 0};
 
 // TODO: figure out how to request data from the MC with this header
-CAN_RxHeaderTypeDef requestCANheaderTemplate = {0x181, 0, CAN_ID_STD, CAN_RTR_DATA, 3, 0, 0};
+//CAN_RxHeaderTypeDef requestCANheaderTemplate = {0x181, 0, CAN_ID_STD, CAN_RTR_DATA, 3, 0, 0};
+
+CAN_RxHeaderTypeDef pRxHeader; //This is where the header for received can headers is stored, so it can be processed
+unsigned char rData[8]; // where the received CAN messages go
 
 unsigned long pTxMailbox = 0; // CAN mailbox var
 
@@ -133,6 +171,38 @@ static void Initialize_CAN_Filter(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sF
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+unsigned char receive_CAN(){ //takes inputs from things like the BMS and motor controller and stores incoming data in appropriate locations
+	unsigned long msg_id = (pRxHeader.IDE == CAN_ID_STD)? pRxHeader.StdId : pRxHeader.ExtId;
+
+	//TODO: make sure that this list contains the ID's of all other nodes that send to the MCU
+	if(msg_id == BMS_sendingID_1){
+		BMS_discrete_inputs_1 = rData[0];
+		//we dont need rData[1] and rData[2] right now, we have our own current sensor :)
+		min_cell_temp = (signed char)rData[3];
+		max_cell_temp = (signed char)rData[4];
+		state_of_charge = rData[5];
+		battery_voltage = ((((unsigned short)(rData[7]))<<8)+rData[6])/10;//Can you tell I don't trust the compiler's operator precedence?
+
+		if (max_cell_temp > MAX_ACCUMULATOR_TEMP){ //do something if accumulator is overheating
+
+		}
+
+	}else if(msg_id == BMS_sendingID_2){
+		BMS_internal_state = ((((unsigned long)rData[0])<<24)|(((unsigned long)rData[1])<<16)|
+				(((unsigned long)rData[2])<<8)|((unsigned long)rData[3])); //when the endian-ness is not correct :(
+		BMS_error_register_1 = ((((unsigned long)rData[4])<<24)|(((unsigned long)rData[5])<<16)|
+				(((unsigned long)rData[6])<<8)|((unsigned long)rData[7]));
+	}else if(msg_id == BMS_sendingID_3){
+		BMS_error_register_2 = ((((unsigned long)rData[0])<<24)|(((unsigned long)rData[1])<<16)|
+				(((unsigned long)rData[2])<<8)|((unsigned long)rData[3]));
+		BMS_discrete_inputs_2 = ((((unsigned short)(rData[5]))<<8)+rData[4]);
+		//rData[5] and rData[4] are reserved
+	}else if(msg_id == MotorControllerCAN_sendingID){
+
+	}
+	return 0;
+}
+
 // destinationRegisterID is the ID (hex) of the register to send the data to, defined as a var above
 // data is just a value, not an array - this function formats it for you
 unsigned char sendCAN_MotorController(unsigned short destinationRegisterID, unsigned int data)
@@ -165,7 +235,7 @@ unsigned char sendCANmsg_PDU(unsigned char enableCircuitBool, unsigned char high
   if (highAmpsBool) formattedData[0] = formattedData[0] | 0b00100000; // set highAmpsBool bit
   formattedData[0] = formattedData[0] | (channelHex & 0b1111);       // set channel bits
 
-  if (HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox))
+  if (HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox) == HAL_OK)
   {
     return 0;
   }
@@ -183,7 +253,7 @@ unsigned char sendCANmsg_DASH(unsigned char destinationID, unsigned char data)
 
   // TODO: format data here
 
-  if (HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox))
+  if (HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox) == HAL_OK)
   {
     return 0;
   }
@@ -204,6 +274,7 @@ float max_cont_torque_available(unsigned short rpm)
 }
 
 // Returns the maximum peak torque available at the current rpm
+// How was this derived?
 float peak_torque_available(unsigned short rpm)
 {
 	float t = (-0.000001 * rpm * rpm) + (0.0029 * rpm) + (239.57);
@@ -502,6 +573,7 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+  /* USER CODE BEGIN ADC2_Init 2 */
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
@@ -597,6 +669,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();

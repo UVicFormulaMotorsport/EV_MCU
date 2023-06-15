@@ -1,0 +1,17 @@
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\bin\Debug\Charging app.exe.config
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\bin\Debug\Charging app.exe
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\bin\Debug\Charging app.pdb
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\obj\Debug\Charging app.csproj.AssemblyReference.cache
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\obj\Debug\Charging app.csproj.SuggestedBindingRedirects.cache
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\obj\Debug\Charging app.csproj.CoreCompileInputs.cache
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\obj\Debug\Charging app.exe
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\obj\Debug\Charging app.pdb
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\bin\Debug\System.CodeDom.dll
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\bin\Debug\System.IO.Ports.dll
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\bin\Debug\System.CodeDom.xml
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\bin\Debug\System.IO.Ports.xml
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\obj\Debug\Charging app.csproj.CopyComplete
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\bin\Debug\System.Runtime.CompilerServices.Unsafe.dll
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\bin\Debug\System.Threading.Tasks.Extensions.dll
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\bin\Debug\System.Runtime.CompilerServices.Unsafe.xml
+C:\Users\byo10\Desktop\UVFR Software\EV_MCU\Projects\Charging Control App\Charging app\bin\Debug\System.Threading.Tasks.Extensions.xml
