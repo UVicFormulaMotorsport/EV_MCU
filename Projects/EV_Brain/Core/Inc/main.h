@@ -75,7 +75,7 @@ unsigned char receive_CAN();
 
 /* USER CODE BEGIN Private defines */
 #define MAX_ACCUMULATOR_TEMP 60
-#define MIN_ACCUMULATOR_TEMO -5
+#define MIN_ACCUMULATOR_TEMP -5
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
