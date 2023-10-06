@@ -37,7 +37,10 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
+typedef struct Error_Info_Struct{
+	long long errors;//bitfield
+	long int systime;
+}Error_info;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -55,6 +58,7 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 unsigned char receive_CAN();
+void emergency_stop();
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
