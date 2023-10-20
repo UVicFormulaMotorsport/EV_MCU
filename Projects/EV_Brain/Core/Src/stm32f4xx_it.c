@@ -59,6 +59,7 @@
 extern DMA_HandleTypeDef hdma_adc1;
 extern ADC_HandleTypeDef hadc1;
 extern CAN_HandleTypeDef hcan1;
+extern TIM_HandleTypeDef htim2;
 /* USER CODE BEGIN EV */
 extern CAN_RxHeaderTypeDef pRxHeader;
 extern unsigned char rData[8];
@@ -226,9 +227,26 @@ void CAN1_RX0_IRQHandler(void)
   /* USER CODE END CAN1_RX0_IRQn 0 */
   HAL_CAN_IRQHandler(&hcan1);
   /* USER CODE BEGIN CAN1_RX0_IRQn 1 */
-  HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pRxHeader, rData);
-  receive_CAN();
+  if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &pRxHeader, rData) == HAL_OK){
+	  receive_CAN();
+  }else{
+	  //ruh roh!
+  }
   /* USER CODE END CAN1_RX0_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM2 global interrupt.
+  */
+void TIM2_IRQHandler(void) //BMS timeout, ruh roh!
+{
+  /* USER CODE BEGIN TIM2_IRQn 0 */
+
+  /* USER CODE END TIM2_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim2);
+  /* USER CODE BEGIN TIM2_IRQn 1 */
+  emergency_stop();
+  /* USER CODE END TIM2_IRQn 1 */
 }
 
 /**

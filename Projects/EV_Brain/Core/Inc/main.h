@@ -37,7 +37,10 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-
+typedef struct Error_Info_Struct{
+	long long errors;//bitfield
+	long int systime;
+}Error_info;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -55,6 +58,7 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 unsigned char receive_CAN();
+void emergency_stop();
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -75,7 +79,7 @@ unsigned char receive_CAN();
 
 /* USER CODE BEGIN Private defines */
 #define MAX_ACCUMULATOR_TEMP 60
-#define MIN_ACCUMULATOR_TEMO -5
+#define MIN_ACCUMULATOR_TEMP -5
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

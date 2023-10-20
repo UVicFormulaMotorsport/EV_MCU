@@ -48,13 +48,11 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
-ADC_HandleTypeDef hadc2;
-ADC_HandleTypeDef hadc3;
 DMA_HandleTypeDef hdma_adc1;
-DMA_HandleTypeDef hdma_adc2;
-DMA_HandleTypeDef hdma_adc3;
 
 CAN_HandleTypeDef hcan1;
+
+TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 
@@ -92,6 +90,10 @@ unsigned short BMS_discrete_inputs_2 = 0;
 unsigned short MotorControllerCAN_acceptingID = 0x201; // send to this device ID if you're giving the MC a value
 unsigned short MotorControllerCAN_sendingID = 0x181;   // you will recieve from this ID if you requested a MC value
 unsigned short PowerDistUnitCAN_acceptingID = 0x710;
+unsigned short BMS_heartbeat = 0x0A0;
+/* A MSG periodically sent out by BMS to confirm that it's still alive
+ *
+ */
 unsigned short BMS_sendingID_1 = 0x1A0;
 /* Data from BMS_sendingID_1 includes:
  * some high level status in a bitfield
@@ -119,7 +121,7 @@ volatile unsigned char conversion_done = 0;
 CAN_TxHeaderTypeDef sendCANheaderTemplate = {0x201, 0, CAN_ID_STD, CAN_RTR_DATA, 3, 0};
 
 // TODO: figure out how to request data from the MC with this header
-//CAN_RxHeaderTypeDef requestCANheaderTemplate = {0x181, 0, CAN_ID_STD, CAN_RTR_DATA, 3, 0, 0};
+CAN_TxHeaderTypeDef requestCANheaderTemplate = {0x181, 0, CAN_ID_STD, CAN_RTR_DATA, 3, 0};
 
 CAN_RxHeaderTypeDef pRxHeader; //This is where the header for received can headers is stored, so it can be processed
 unsigned char rData[8]; // where the received CAN messages go
@@ -147,6 +149,7 @@ unsigned int BrakePedalSensor1_ADC_RANGE = BrakePedalSensor1_MAX_ADC_VALUE - Bra
 unsigned char PEAK_TORQUE_MODE = false;
 
 unsigned char READY_TO_DRIVE = false;
+//error handling vars
 
 // TODO: are these values correct? what are they for?
 const unsigned char MAX_CONTINUOUS_TORQUE = 125;
@@ -160,6 +163,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_CAN1_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 // TODO: does this need to be a function, or can the steps just be done in main?
@@ -171,11 +175,44 @@ static void Initialize_CAN_Filter(CAN_HandleTypeDef *hcan, CAN_FilterTypeDef *sF
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+//this could be replaced with a global state variable if any errors are present
+void emergency_stop(){
+	/*TODO: literally all the error handling, we build race cars, not death traps
+	 * We need a bunch of new global variables to be able to put the car into an error state
+	 * Its about to get spicy up in here
+	 *
+	 *
+	 *
+	 *
+	 *
+	 *
+	 *
+	 */
+	READY_TO_DRIVE = false; //first, change vehicle states
+	//TODO: MANUALLY set the shutdown pin, just in case the code never actually executes
+}
+
+void BMS_Msg_received(){
+	//resets the BMS watchdog timeout
+	//TODO: implement this system
+}
+
+
 unsigned char receive_CAN(){ //takes inputs from things like the BMS and motor controller and stores incoming data in appropriate locations
 	unsigned long msg_id = (pRxHeader.IDE == CAN_ID_STD)? pRxHeader.StdId : pRxHeader.ExtId;
 
 	//TODO: make sure that this list contains the ID's of all other nodes that send to the MCU
-	if(msg_id == BMS_sendingID_1){
+	/*
+	All BMS data is defined in the movicom CAN PDO protocols available on their website at the following
+	link:
+	It's pretty cool, you should check it out
+	Pretty much, what the following code does is
+	*/
+	if(msg_id == BMS_heartbeat){
+		BMS_Msg_received();
+	}
+	else if(msg_id == BMS_sendingID_1){
+		BMS_Msg_received(); //VOODOO MAGIC DO NOT TOUCH
 		BMS_discrete_inputs_1 = rData[0];
 		//we dont need rData[1] and rData[2] right now, we have our own current sensor :)
 		min_cell_temp = (signed char)rData[3];
@@ -184,22 +221,38 @@ unsigned char receive_CAN(){ //takes inputs from things like the BMS and motor c
 		battery_voltage = ((((unsigned short)(rData[7]))<<8)+rData[6])/10;//Can you tell I don't trust the compiler's operator precedence?
 
 		if (max_cell_temp > MAX_ACCUMULATOR_TEMP){ //do something if accumulator is overheating
+			emergency_stop();
+		} else if(min_cell_temp < MIN_ACCUMULATOR_TEMP){ //you don't want to start the car if too cold, it's bad for the accumulator
 
 		}
 
 	}else if(msg_id == BMS_sendingID_2){
+		BMS_Msg_received(); //VOODOO MAGIC DO NOT TOUCH
 		BMS_internal_state = ((((unsigned long)rData[0])<<24)|(((unsigned long)rData[1])<<16)|
 				(((unsigned long)rData[2])<<8)|((unsigned long)rData[3])); //when the endian-ness is not correct :(
 		BMS_error_register_1 = ((((unsigned long)rData[4])<<24)|(((unsigned long)rData[5])<<16)|
 				(((unsigned long)rData[6])<<8)|((unsigned long)rData[7]));
+		if(BMS_error_register_1 & 0xFFFFFFFF){ // the "& 0xFFFFFFFF" is here so in the future we can differentiate critical and non critical errors
+			emergency_stop();
+		}
 	}else if(msg_id == BMS_sendingID_3){
+		BMS_Msg_received();//VOODOO MAGIC DO NOT TOUCH
 		BMS_error_register_2 = ((((unsigned long)rData[0])<<24)|(((unsigned long)rData[1])<<16)|
 				(((unsigned long)rData[2])<<8)|((unsigned long)rData[3]));
 		BMS_discrete_inputs_2 = ((((unsigned short)(rData[5]))<<8)+rData[4]);
-		//rData[5] and rData[4] are reserved
+		//rData[6] and rData[7] are reserved
+		if(BMS_error_register_2 & 0xFFFFFFFF){ // the "& 0xFFFFFFFF" is here so in the future we can differentiate critical and non critical errors
+			emergency_stop();
+		}else if(BMS_discrete_inputs_2){//placeholder
+
+		}
 	}else if(msg_id == MotorControllerCAN_sendingID){
 
+	} else { // unknown sender, what the fuck?
+
 	}
+
+
 	return 0;
 }
 
@@ -244,6 +297,11 @@ unsigned char sendCANmsg_PDU(unsigned char enableCircuitBool, unsigned char high
 }
 
 // TODO: implement dash function: define device IDs, figure out how to format data
+/*
+ * I am going to have a fucking aneurism. Why is the CAN message ID passed in as an argument to this function, but this function is specifically for the damn dash!!
+ *
+ * FIX IT!!!!!!!!
+ */
 unsigned char sendCANmsg_DASH(unsigned char destinationID, unsigned char data)
 {
   sendCANheaderTemplate.StdId = destinationID;
@@ -285,7 +343,7 @@ float peak_torque_available(unsigned short rpm)
 	return t;
 }
 
-// TODO: when is the system plausible?
+// TODO: when is the system plausible? I have an issue with the methodology here since the implausible state should exist for a few seconds
 // Returns true if the car is not in or recovering from an implausible state
 unsigned char plausibility_check(unsigned char acceleratorPedal_percent, unsigned char brakePedal_percent)
 {
@@ -302,7 +360,7 @@ float pedal_map(float throttle, float max_trq)
   return pow((throttle - REGEN) / (max_trq - REGEN), GAMMA);
 }
 
-void driving_tasks()
+void driving_tasks() //TODO fix the damn spacing
 {
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC1_outputBuffer, 7);
 	while(!conversion_done)
@@ -342,7 +400,8 @@ void driving_tasks()
   //sendCAN_MotorController(0x31, (acceleratorPedal_percent*3277)/100); // send motor desired RPM to MC
   //sendCAN_MotorController(0x31, 0xF0F0);
 
-  unsigned char formattedData[3] = {(0xF00 & acceleratorPedal_ADCoutput[0]) >> 8, (0x0F0 & acceleratorPedal_ADCoutput[0]) >> 4, 0x00F & acceleratorPedal_ADCoutput[0]};
+  // Are we sending raw unprocessed ADC data to the Motor Controller? No torque map is applied here
+  unsigned char formattedData[3] = {(0xF00 & acceleratorPedal_ADCoutput[0]) >> 8, (0x0F0 & acceleratorPedal_ADCoutput[0]) >> 4, 0x00F & acceleratorPedal_ADCoutput[0]}; //Someone explain pls
   sendCANheaderTemplate.StdId = MotorControllerCAN_acceptingID;
   sendCANheaderTemplate.DLC = 3;
   HAL_CAN_AddTxMessage(&hcan1, &sendCANheaderTemplate, formattedData, &pTxMailbox);
@@ -415,6 +474,7 @@ int main(void)
   MX_DMA_Init();
   MX_ADC1_Init();
   MX_CAN1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET); //grn
@@ -448,6 +508,8 @@ int main(void)
 		{
 			waiting_to_drive_tasks();
 		}
+
+		//Anything we want to do regardless of the current state? like monitor coolant, etc...
 
     /* USER CODE END WHILE */
 
@@ -573,7 +635,6 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN ADC2_Init 2 */
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
@@ -642,6 +703,54 @@ static void MX_CAN1_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 0;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4294967295;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_ETRMODE2;
+  sClockSourceConfig.ClockPolarity = TIM_CLOCKPOLARITY_NONINVERTED;
+  sClockSourceConfig.ClockPrescaler = TIM_CLOCKPRESCALER_DIV1;
+  sClockSourceConfig.ClockFilter = 0;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -669,7 +778,6 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();

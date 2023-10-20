@@ -2,7 +2,7 @@
 Contact: Benjamin Say, Peter Grant <br />
 08-June-2023
 ### Description
-Interfaces with the motor controller, power distribution unit, LCD dashboard, and Insulation Monitoring Device (IMD) for UVic's 2023 EV. <br />
+Interfaces with the motor controller, power distribution unit, LCD dashboard, Battery Management System, and Insulation Monitoring Device (IMD) for UVic's 2023 EV. <br />
 
 The primary function of this system is sending torque requests to the motor controller. Pedal sensor values are read and mapped to an actuation percentage. This percentage is then converted to a torque value by comparing to the maximum available torque at the motor's current RPM. The torque value is then converted to a setpoint value and sent to the controller.
 
