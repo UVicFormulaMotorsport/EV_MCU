@@ -21,25 +21,63 @@ Before you submit a pull request to merge your branch or fork with main, please 
 There are two common conventions for names. CamelCase and snake_case. You may use either, but make the name short and desriptive Please remain consistent within files. Use numbers, letters, and underscores. Avoid other characters when possible. Try to make variable and function names as unique as possible. Above each function, there should be a comment explaining what it does. You make a comment in C by adding "//" before a line.
 
 //This is a comment!
-
+#### CamelCase
 Camelcase is a style of writing fucntion or variable names. Each word or part of a name is capitalized, except the first word. 
 IE: 
 fan controller becomes fanController
 compute torque becomes computeTorque
 
+#### snake_case
 Snake case is a style of writing function or variable names. All letters are lowercase, and between each word is an underscore.
 
-Some examples of good function names:
+#### Function name examples
+**Some examples of good function names:**
 fanController
 fan_controller
 drivingLoop
 compute_torque
 
-Some examples of bad function names:
+**Some examples of bad function names:**
 MyFunction
 x
 this_does_the_computation_of_torque_for_the_university_of_victoria_electric_vehicle
 cmpoot_tork
 DriVinglOOp
+
+#### Variable name examples
+**Some examples of good variable names:**
+calculatedTorque
+brakePressure
+
+**Some examples of bad variable names:**
+x
+abc
+abcd
+abcde
+tq
+matilda
+🍆
+brakepressure
+bra_kepressu_re
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
